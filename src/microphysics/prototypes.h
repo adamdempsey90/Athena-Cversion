@@ -21,6 +21,9 @@ void conduction_destruct(void);
 
 /* cool.c */
 Real KoyInut(const Real dens, const Real Press, const Real dt);
+Real AtmosCooling1D(const Real z, const Real x1, const Real x2, const Real x3);
+Real AtmosCooling2D(const Real z, const Real x1, const Real x2, const Real x3);
+Real AtmosCooling3D(const Real z, const Real x1, const Real x2, const Real x3);
 
 /* get_eta.c */
 #ifdef RESISTIVITY

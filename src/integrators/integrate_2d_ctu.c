@@ -324,8 +324,9 @@ void integrate_2d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
     if (CoolingFunc != NULL){
       for (i=il+1; i<=iu; i++) {
-        coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,(0.5*pG->dt));
-        coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,(0.5*pG->dt));
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,(0.5*pG->dt),(x1-pG->dx1),x2,x3 );
+        coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,(0.5*pG->dt),x1,x2,x3);
 
         Wl[i].P -= 0.5*pG->dt*Gamma_1*coolfl;
         Wr[i].P -= 0.5*pG->dt*Gamma_1*coolfr;
@@ -609,8 +610,9 @@ void integrate_2d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
     if (CoolingFunc != NULL){
       for (j=jl+1; j<=ju; j++) {
-        coolfl = (*CoolingFunc)(Wl[j].d,Wl[j].P,(0.5*pG->dt));
-        coolfr = (*CoolingFunc)(Wr[j].d,Wr[j].P,(0.5*pG->dt));
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        coolfl = (*CoolingFunc)(Wl[j].d,Wl[j].P,(0.5*pG->dt),x1,(x2-    pG->dx2),x3);
+        coolfr = (*CoolingFunc)(Wr[j].d,Wr[j].P,(0.5*pG->dt),x1, x2             ,x3);
 
         Wl[j].P -= 0.5*pG->dt*Gamma_1*coolfl;
         Wr[j].P -= 0.5*pG->dt*Gamma_1*coolfr;
@@ -1868,7 +1870,8 @@ void integrate_2d_ctu(DomainS *pD)
   if (CoolingFunc != NULL){
     for (j=js; j<=je; j++){
       for (i=is; i<=ie; i++){
-        coolf = (*CoolingFunc)(dhalf[j][i],phalf[j][i],pG->dt);
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        coolf = (*CoolingFunc)(dhalf[j][i],phalf[j][i],pG->dt,x1,x2,x3);
         pG->U[ks][j][i].E -= pG->dt*coolf;
       }
     }

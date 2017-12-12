@@ -391,8 +391,9 @@ void integrate_3d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
       if (CoolingFunc != NULL){
         for (i=il+1; i<=iu; i++) {
-          coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,(0.5*pG->dt));
-          coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,(0.5*pG->dt));
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          coolfl = (*CoolingFunc)(Wl[i].d,Wl[i].P,(0.5*pG->dt),(x1-    pG->dx1),x2,x3);
+          coolfr = (*CoolingFunc)(Wr[i].d,Wr[i].P,(0.5*pG->dt),x1,x2,x3);
 
           Wl[i].P -= 0.5*pG->dt*Gamma_1*coolfl;
           Wr[i].P -= 0.5*pG->dt*Gamma_1*coolfr;
@@ -710,8 +711,9 @@ void integrate_3d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
       if (CoolingFunc != NULL){
         for (j=jl+1; j<=ju; j++) {
-          coolfl = (*CoolingFunc)(Wl[j].d,Wl[j].P,(0.5*pG->dt));
-          coolfr = (*CoolingFunc)(Wr[j].d,Wr[j].P,(0.5*pG->dt));
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          coolfl = (*CoolingFunc)(Wl[j].d,Wl[j].P,(0.5*pG->dt),x1,(x2-    pG->dx2),x3);
+          coolfr = (*CoolingFunc)(Wr[j].d,Wr[j].P,(0.5*pG->dt),x1,x2,x3);
 
           Wl[j].P -= 0.5*pG->dt*Gamma_1*coolfl;
           Wr[j].P -= 0.5*pG->dt*Gamma_1*coolfr;
@@ -904,8 +906,9 @@ void integrate_3d_ctu(DomainS *pD)
 #ifndef BAROTROPIC
       if (CoolingFunc != NULL){
         for (k=kl+1; k<=ku; k++) {
-          coolfl = (*CoolingFunc)(Wl[k].d,Wl[k].P,(0.5*pG->dt));
-          coolfr = (*CoolingFunc)(Wr[k].d,Wr[k].P,(0.5*pG->dt));
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          coolfl = (*CoolingFunc)(Wl[k].d,Wl[k].P,(0.5*pG->dt),x1,x2,(x3-    pG->dx3));
+          coolfr = (*CoolingFunc)(Wr[k].d,Wr[k].P,(0.5*pG->dt),x1,x2,x3);
 
           Wl[k].P -= 0.5*pG->dt*Gamma_1*coolfl;
           Wr[k].P -= 0.5*pG->dt*Gamma_1*coolfr;
@@ -3170,7 +3173,8 @@ void integrate_3d_ctu(DomainS *pD)
     for (k=ks; k<=ke; k++){
       for (j=js; j<=je; j++){
         for (i=is; i<=ie; i++){
-          coolf = (*CoolingFunc)(dhalf[k][j][i],phalf[k][j][i],pG->dt);
+          cc_pos(pG,i,j,k,&x1,&x2,&x3);
+          coolf = (*CoolingFunc)(dhalf[k][j][i],phalf[k][j][i],pG->dt,x1,x2,x3);
           pG->U[k][j][i].E -= pG->dt*coolf;
         }
       }

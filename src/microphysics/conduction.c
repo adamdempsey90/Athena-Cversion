@@ -157,6 +157,29 @@ void conduction(DomainS *pD)
   return;
 }
 
+
+Real heatcond_prof(const Real x1, const Real x2, const Real x3) {
+ 
+  Real aval = 3.5;
+  Real fmin = 0.1;
+  Real zcval = (1.-fmin)/aval;
+  Real dval = 0.05;
+  Real F0 = 1e-3;
+
+  Real result;
+  Real logfac;
+
+
+  logfac = exp(1./dval) + exp(zcval/dval);
+  logfac /= exp(x2/dval) + exp(zcval/dval);
+
+
+  result = fmin - aval*(x2 -1. + dval*log(logfac))
+ 
+  return result;
+
+}
+
 /*----------------------------------------------------------------------------*/
 /*! \fn void HeatFlux_iso(DomainS *pD)
  *  \brief Calculate heat fluxes with isotropic conduction
@@ -168,14 +191,19 @@ void HeatFlux_iso(DomainS *pD)
   int i, is = pG->is, ie = pG->ie;
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
+  Real x1,x2,x3;
   Real kd;
 
 /* Add heat fluxes in 1-direction */ 
 
+
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie+1; i++) {
-      kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
+      //kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
+      
+      cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+      kd = heatcond_prof(x1,x2,x3)
       Q[k][j][i].x1 += kd*(Temp[k][j][i] - Temp[k][j][i-1])/pG->dx1;
     }
   }}
@@ -186,7 +214,9 @@ void HeatFlux_iso(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie; i++) {
-        kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
+      //  kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        kd = heatcond_prof(x1,x2,x3)
         Q[k][j][i].x2 += kd*(Temp[k][j][i] - Temp[k][j-1][i])/pG->dx2;
       }
     }}
@@ -198,7 +228,9 @@ void HeatFlux_iso(DomainS *pD)
     for (k=ks; k<=ke+1; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
+        //kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
+        cc_pos(pG,i,j,ks,&x1,&x2,&x3);
+        kd = heatcond_prof(x1,x2,x3)
         Q[k][j][i].x3 += kd*(Temp[k][j][i] - Temp[k-1][j][i])/pG->dx3;
       }
     }}

@@ -109,7 +109,15 @@ ifeq ($(MACHINE),macosx)
   FFTWLIB = -L/opt/local/lib -lfftw3
   FFTWINC = -I/opt/local/include
 else
-  abort Unsupported MACHINE=$(MACHINE)
+ifeq ($(MACHINE),linux)
+  CC = gcc
+  LDR = gcc
+  OPT = -O3 
+else
+  CC = gcc-6
+  LDR = gcc-6
+  OPT = -O3 
+endif
 endif
 endif
 endif

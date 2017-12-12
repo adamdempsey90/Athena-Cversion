@@ -79,3 +79,22 @@ Real KoyInut(const Real dens, const Real Press, const Real dt)
   return n*coolrate;
 }
 #endif /* BAROTROPIC */
+Real AtmosCooling1D(const Real z, const Real x1, const Real x2, const Real x3) {
+  Real dmax = 0.2;
+  Real F0 = 1e-3;
+  Real xval = (x1-1.8)/dmax;
+  return -2*xval/dmax * F0 * exp(-xval*xval);
+}
+
+Real AtmosCooling2D(const Real z, const Real x1, const Real x2, const Real x3) {
+  Real dmax = 0.2;
+  Real F0 = 1e-3;
+  Real xval = (x2-1.8)/dmax;
+  return -2*xval/dmax * F0 * exp(-xval*xval);
+}
+Real AtmosCooling3D(const Real z, const Real x1, const Real x2, const Real x3) {
+  Real dmax = 0.2;
+  Real F0 = 1e-3;
+  Real xval = (x3-1.8)/dmax;
+  return -2*xval/dmax * F0 * exp(-xval*xval);
+}

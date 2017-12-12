@@ -39,7 +39,7 @@ void integrate_cooling(MeshS *pM)
         pG->dt = pM->dt;
 
 /* Call cooling solver Mesh hierarchy. */
-        cooling_solver(pG);
+        cooling_solver_simple(pG);
         pM->dt = MIN(pM->dt, pG->dt);
 #endif
       }
