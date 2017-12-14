@@ -106,7 +106,7 @@ void problem(DomainS *pDomain)
   kappa_iso = par_getd_def("problem","kappa_iso",1.0);
   dlnkdz = par_getd_def("problem","dlnkdz",3.5);
   xi = par_getd_def("problem","xi",3.0);
-  Ftot = par_getd_def("problem","Ftot",0.1);
+  Ftot = par_getd_def("problem","Ftot",1e-3);
   g = par_getd_def("problem","g",1.0);
   loz = par_getd_def("problem","loz",0.1);
   delta = par_getd_def("problem","delta",1e-3);
@@ -128,7 +128,7 @@ void problem(DomainS *pDomain)
 
   printf("Delad:%lg\nDelta:%lg\nTtop:%lg\nPtop:%lg\nT1:%lg\nT0:%lg\nP1:%lg\nP0:%lg\n",delad,delta,Ttop,Ptop,T1,T0,P1,P0);
 
-  FILE *f = fopen("/Users/zeus/Athena-Cversion/bin/ics.dat","w");
+//  FILE *f = fopen("/Users/zeus/Athena-Cversion/bin/ics.dat","w");
 
   if (pGrid->Nx[2] == 1) {
   for (k=ks; k<=ke; k++) {
@@ -137,7 +137,7 @@ void problem(DomainS *pDomain)
       Tval = Tfunc(x2, dlnkdz, loz, delta, xi,delad);
       Pval = Pfunc(x2, dlnkdz, loz, delta, xi,delad);
       Rhoval = Pval/(delad*Tval);
-      fprintf(f,"%lg\t%lg\t%lg\t%lg\n",x2,Tval,Pval,Rhoval);
+ //     fprintf(f,"%lg\t%lg\t%lg\t%lg\n",x2,Tval,Pval,Rhoval);
       for (i=is; i<=ie; i++) {
 	    pGrid->U[k][j][i].d = Rhoval;
         pGrid->U[k][j][i].E = Pval/(Gamma-1);
@@ -152,7 +152,7 @@ void problem(DomainS *pDomain)
       }
     }
   }
-  fclose(f);
+//  fclose(f);
 
 /* Enroll gravitational potential to give acceleration in y-direction for 2D
  * Use special boundary condition routines.  In 2D, gravity is in the
@@ -387,8 +387,8 @@ void flux_ix2(GridS *pGrid)
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
         cc_pos(pGrid,1,js-j,k,&x1,&x2,&x3);
-      Tval = Tfunc(x2, 3.5, .1, -1e-2, 3.,.4);
-      Pval = Pfunc(x2, 3.5, .1, -1e-2,3.,.4);
+      Tval = Tfunc(x2, 3.5, .1, 1e-3, 3.,.4);
+      Pval = Pfunc(x2, 3.5, .1, 1e-3,3.,.4);
       Rhoval = Pval/(.4*Tval);
       for (i=il; i<=iu; i++) {
 
@@ -450,8 +450,8 @@ void flux_ox2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
         cc_pos(pGrid,i,je+j,k,&x1,&x2,&x3);
-      Tval = Tfunc(x2, 3.5, .1, -1e-2, 3.,.4);
-      Pval = Pfunc(x2, 3.5, .1, -1e-2,3.,.4);
+      Tval = Tfunc(x2, 3.5, .1, 1e-3, 3.,.4);
+      Pval = Pfunc(x2, 3.5, .1, 1e-3,3.,.4);
       Rhoval = Pval/(.4*Tval);
 	//	x2 = 1.-x2;
 
