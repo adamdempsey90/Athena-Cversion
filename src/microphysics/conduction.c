@@ -77,7 +77,6 @@ void conduction(DomainS *pD)
   Real my_dt = pG->dt;
 #endif
   Real dtodx1=my_dt/pG->dx1, dtodx2=0.0, dtodx3=0.0;
-  Real hcond_d,hcond_u,x1,x2,x3,delad;
 
   if (pG->Nx[1] > 1){
     jl = js - 1;
@@ -127,15 +126,11 @@ void conduction(DomainS *pD)
 
 /* Update energy using x1-fluxes */
 
-	delad = 1. - 1./Gamma;
 
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie; i++) {
-      cc_pos(pG,i,j,k,&x1,&x2,&x3);
-      hcond_u = heatcond_prof(x1+.5*pG->dx1,x2,x3)/delad;
-      hcond_d = heatcond_prof(x1-.5*pG->dx1,x2,x3)/delad;
-      pG->U[k][j][i].E += dtodx1*(hcond_u*Q[k][j][i+1].x1 - hcond_d*Q[k][j][i].x1);
+      pG->U[k][j][i].E += dtodx1*(Q[k][j][i+1].x1 - Q[k][j][i].x1);
     }
   }}
 
@@ -145,10 +140,7 @@ void conduction(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-      cc_pos(pG,i,j,k,&x1,&x2,&x3);
-      hcond_u = heatcond_prof(x1,x2+.5*pG->dx2,x3)/delad;
-      hcond_d = heatcond_prof(x1,x2-.5*pG->dx2,x3)/delad;
-        pG->U[k][j][i].E += dtodx2*(hcond_u*Q[k][j+1][i].x2 - hcond_d*Q[k][j][i].x2);
+        pG->U[k][j][i].E += dtodx2*(Q[k][j+1][i].x2 - Q[k][j][i].x2);
       }
     }}
   }
@@ -159,10 +151,7 @@ void conduction(DomainS *pD)
     for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-      cc_pos(pG,i,j,k,&x1,&x2,&x3);
-      hcond_u = heatcond_prof(x1,x2,x3+.5*pG->dx3)/delad;
-      hcond_d = heatcond_prof(x1,x2,x3-.5*pG->dx3)/delad;
-        pG->U[k][j][i].E += dtodx3*(hcond_u*Q[k+1][j][i].x3 - hcond_d*Q[k][j][i].x3);
+        pG->U[k][j][i].E += dtodx3*(Q[k+1][j][i].x3 - Q[k][j][i].x3);
       }
     }}
   }
@@ -207,8 +196,7 @@ void HeatFlux_iso(DomainS *pD)
   int j, js = pG->js, je = pG->je;
   int k, ks = pG->ks, ke = pG->ke;
   Real x1,x2,x3;
-  Real kd;
-	Real FkL, FkR;
+  Real heatcond,delad;
 
 /* Add heat fluxes in 1-direction */ 
 
@@ -220,14 +208,17 @@ void HeatFlux_iso(DomainS *pD)
 //	}
 //	fclose(f);
 
+	delad = 1. - 1./Gamma;
 
 
   for (k=ks; k<=ke; k++) {
   for (j=js; j<=je; j++) {
     for (i=is; i<=ie+1; i++) {
       //kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
+      cc_pos(pG,i,j,k,&x1,&x2,&x3);
+      heatcond = heatcond_prof(x1-.5*pG->dx1,x2,x3)/delad;
 
-      Q[k][j][i].x1 += (Temp[k][j][i]-Temp[k][j][i-1])/pG->dx1;
+      Q[k][j][i].x1 += heatcond*(Temp[k][j][i]-Temp[k][j][i-1])/pG->dx1;
     }
   }}
 
@@ -238,7 +229,9 @@ void HeatFlux_iso(DomainS *pD)
     for (j=js; j<=je+1; j++) {
       for (i=is; i<=ie; i++) {
       //  kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
-        Q[k][j][i].x2 += (Temp[k][j][i]-Temp[k][j-1][i])/pG->dx2;
+      cc_pos(pG,i,j,k,&x1,&x2,&x3);
+      heatcond = heatcond_prof(x1,x2-.5*pG->dx2,x3)/delad;
+        Q[k][j][i].x2 += heatcond*(Temp[k][j][i]-Temp[k][j-1][i])/pG->dx2;
       }
     }}
   }
@@ -250,7 +243,9 @@ void HeatFlux_iso(DomainS *pD)
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
         //kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
-        Q[k][j][i].x3 += (Temp[k][j][i]-Temp[k-1][j][i])/pG->dx3;
+      cc_pos(pG,i,j,k,&x1,&x2,&x3);
+      heatcond = heatcond_prof(x1,x2,x3-.5*pG->dx3)/delad;
+        Q[k][j][i].x3 += heatcond*(Temp[k][j][i]-Temp[k-1][j][i])/pG->dx3;
       }
     }}
   }

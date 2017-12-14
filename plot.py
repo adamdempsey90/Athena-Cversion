@@ -6,18 +6,19 @@ def loadit(i,ny=104,nx=40):
     dat = np.loadtxt(fname)
     p = dat[:,-1].reshape(ny,nx)
     d = dat[:,4].reshape(ny,nx)
+    vz = dat[:,6].reshape(ny,nx)
     y = dat[:,3].reshape(ny,nx)
     T = p/(d*.4)
     s = np.log(T*p**(-.4))
     s -= s[0,:].mean()
-    return y[:,0],T,d,p,s
+    return y[:,0],T,d,p,vz,s
 
 def plot2d(q,fig=None,ax=None):
     if ax is None:
         fig,ax = plt.subplots()
-    ax.imshow(q,origin='lower')
+    ax.imshow(q,origin='lower',extent=(-.5,.5,-1,2))
 
-def plotit(y,T,d,p,s,j=10,avg=True,fig=None,axes=None):
+def plotit(y,T,d,p,vz,s,j=10,avg=True,fig=None,axes=None,**kargs):
     if axes is None:
         fig,axes = plt.subplots(2,2,sharex=True)
 
@@ -44,7 +45,33 @@ def plotit(y,T,d,p,s,j=10,avg=True,fig=None,axes=None):
     return fig,axes
 
 
-def summary(i):
-    fig,axes = plotit(*loadit(0))
-    plotit(*loadit(i),fig=fig,axes=axes)
-    plot2d(loadit(i)[-1])
+def summary(ivals,figsize=(15,10),savefig=None,**kargs):
+	import matplotlib.gridspec as gridspec
+	gs = gridspec.GridSpec(2,4)
+	fig = plt.figure(figsize=figsize)
+
+	axes = []
+	for i in range(2):
+		for j in range(2):
+			axes.append(fig.add_subplot(gs[i,j]))
+	axes = np.array(axes).reshape(2,2)
+	ax2 = fig.add_subplot(gs[:,-2])
+	ax3 = fig.add_subplot(gs[:,-1])
+
+	plotit(*loadit(0),fig=fig,axes=axes,**kargs)
+	try:
+		nt = len(ivals)
+	except TypeError:
+		nt = 1
+		ivals = [ivals]
+	for i in ivals:
+		y,T,d,p,vz,s = loadit(i)
+		plotit(y,T,d,p,vz,s,fig=fig,axes=axes)
+
+	plot2d(s-s.mean(axis=1)[:,np.newaxis],ax=ax2,fig=fig)
+	plot2d(vz,ax=ax3,fig=fig)
+	ax2.set_title('$s-\\langle s \\rangle$')
+	ax3.set_title('$v_z$')
+	fig.tight_layout()
+	if savefig is not None:
+		fig.savefig(savefig,bbox_inches='tight')
