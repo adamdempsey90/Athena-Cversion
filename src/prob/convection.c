@@ -387,8 +387,8 @@ void flux_ix2(GridS *pGrid)
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
         cc_pos(pGrid,1,js-j,k,&x1,&x2,&x3);
-      Tval = Tfunc(x2, 3.5, .1, 1e-3, 3.,.4);
-      Pval = Pfunc(x2, 3.5, .1, 1e-3,3.,.4);
+      Tval = Tfunc(x2, 3.5, .1, -1e-2, 3.,.4);
+      Pval = Pfunc(x2, 3.5, .1, -1e-2,3.,.4);
       Rhoval = Pval/(.4*Tval);
       for (i=il; i<=iu; i++) {
 
@@ -450,8 +450,8 @@ void flux_ox2(GridS *pGrid)
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
         cc_pos(pGrid,i,je+j,k,&x1,&x2,&x3);
-      Tval = Tfunc(x2, 3.5, .1, 1e-3, 3.,.4);
-      Pval = Pfunc(x2, 3.5, .1, 1e-3,3.,.4);
+      Tval = Tfunc(x2, 3.5, .1, -1e-2, 3.,.4);
+      Pval = Pfunc(x2, 3.5, .1, -1e-2,3.,.4);
       Rhoval = Pval/(.4*Tval);
 	//	x2 = 1.-x2;
 
