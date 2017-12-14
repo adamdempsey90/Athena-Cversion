@@ -48,23 +48,26 @@
 /*==============================================================================
  * PRIVATE FUNCTION PROTOTYPES:
  * ran2() - random number generator from NR
- * reflect_ix2() - sets BCs on L-x2 (left edge) of grid used in 2D
- * reflect_ox2() - sets BCs on R-x2 (right edge) of grid used in 2D
- * reflect_ix3() - sets BCs on L-x3 (left edge) of grid used in 3D
- * reflect_ox3() - sets BCs on R-x3 (right edge) of grid used in 3D
+ * flux_ix2() - sets BCs on L-x2 (left edge) of grid used in 2D
+ * flux_ox2() - sets BCs on R-x2 (right edge) of grid used in 2D
+ * flux_ix3() - sets BCs on L-x3 (left edge) of grid used in 3D
+ * flux_ox3() - sets BCs on R-x3 (right edge) of grid used in 3D
  * grav_pot2() - gravitational potential for 2D problem (accn in Y)
  * grav_pot3() - gravitational potential for 3D problem (accn in Z)
  *============================================================================*/
 
 static double ran2(long int *idum);
-static void reflect_ix2(GridS *pGrid);
-static void reflect_ox2(GridS *pGrid);
-static void reflect_ix3(GridS *pGrid);
-static void reflect_ox3(GridS *pGrid);
+void flux_ix2(GridS *pGrid);
+void flux_ox2(GridS *pGrid);
+void flux_ix3(GridS *pGrid);
+void flux_ox3(GridS *pGrid);
+static Real grav_pot1(const Real x1, const Real x2, const Real x3);
 static Real grav_pot2(const Real x1, const Real x2, const Real x3);
 static Real grav_pot3(const Real x1, const Real x2, const Real x3);
 static Real eix(Real x);
 static Real e1xb(Real x); 
+Real Tfunc(Real z, Real a, Real loz, Real delta, Real xi, Real delad);
+Real Pfunc(Real z, Real a, Real loz, Real delta, Real xi, Real delad);
 
 /*=========================== PUBLIC FUNCTIONS ===============================*/
 /*----------------------------------------------------------------------------*/
@@ -82,7 +85,7 @@ void problem(DomainS *pDomain)
 #endif
   Real Tval, Pval, Rhoval, Eval;
   Real T0,T1,P0,P1,Ttop,Ptop;
-  Real Ftot,xi,dlnkdz,g,delad;
+  Real Ftot,xi,dlnkdz,g,delad,loz,delta;
   int ixs, jxs, kxs;
 
   is = pGrid->is;  ie = pGrid->ie;
@@ -99,27 +102,14 @@ void problem(DomainS *pDomain)
   kxs = pGrid->Disp[2];
   iseed = -1 - (ixs + pDomain->Nx[0]*(jxs + pDomain->Nx[1]*kxs));
 
-/* Read perturbation amplitude, problem switch, background density */
-  amp = par_getd("problem","amp");
-  iprob = par_geti("problem","iprob");
-  rhoh  = par_getd_def("problem","rhoh",3.0);
-/* Distance over which field is rotated */
-  L_rot  = par_getd_def("problem","L_rot",0.0);
 
-/* Read magnetic field strength, angle [should be in degrees, 0 is along +ve
- * X-axis (no rotation)] */
-#ifdef MHD
-  b0 = par_getd("problem","b0");
-  angle = par_getd("problem","angle");
-  angle = (angle/180.)*PI;
-#endif
-
-  dlnkdz = par_getd("problem","dlnkdz");
-  xi = par_getd("problem","xi");
-  Ftot = par_getd("problem","Ftot");
-  g = par_getd("problem","g");
-  loz = par_getd("problem","loz");
-  delta = par_getd("problem","delta");
+  kappa_iso = par_getd_def("problem","kappa_iso",1.0);
+  dlnkdz = par_getd_def("problem","dlnkdz",3.5);
+  xi = par_getd_def("problem","xi",3.0);
+  Ftot = par_getd_def("problem","Ftot",0.1);
+  g = par_getd_def("problem","g",1.0);
+  loz = par_getd_def("problem","loz",0.1);
+  delta = par_getd_def("problem","delta",1e-3);
 
 /* 2D PROBLEM --------------------------------------------------------------- */
 /* Initialize two fluids with interface at y=0.0.  Pressure scaled to give a
@@ -136,103 +126,33 @@ void problem(DomainS *pDomain)
   P1 = Ptop*exp( (1+dlnkdz)/delad * exp(dlnkdz*Ttop) *( eix(-dlnkdz*T1)-eix(-dlnkdz*Ttop))); 
   P0 = P1*pow(T0/T1,1./(delad+delta));
 
-  if (pGrid->Nx[1] == 1) {
-  for (k=ks; k<=ke; k++) {
-    for (j=js; j<=je; j++) {
-      for (i=is; i<=ie; i++) {
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+  printf("Delad:%lg\nDelta:%lg\nTtop:%lg\nPtop:%lg\nT1:%lg\nT0:%lg\nP1:%lg\nP0:%lg\n",delad,delta,Ttop,Ptop,T1,T0,P1,P0);
 
-	if (x1 < -loz) {
-	  Tval = T0 + log( (1-dlnkdz*x1)/(1+dlnkdz*loz))/dlnkdz;
-	  Pval = P0*exp( (1+dlnkdz*loz)/delad * exp(-dlnkdz*T0) *( eix(dlnkdz*Tval)-eix(dlnkdz*T0))); 
+  FILE *f = fopen("/Users/zeus/Athena-Cversion/bin/ics.dat","w");
 
-	}
-	else if (x1 < 1+loz) {
-	  Tval = T1 - g*(1 + delta/delad)*(x1 - (1+loz));
-	  Pval = P1*pow(Tval/T1,1./(delad+delta));
-
-	}
-	else {
-	  Tval = Ttop - log( (1-dlnkdz*(1-x1))/(1+dlnkdz))/dlnkdz;
-	  Pval = Ptop*exp( (1+dlnkdz)/delad * exp(dlnkdz*Ttop) *( eix(-dlnkdz*Tval)-eix(-dlnkdz*Ttop))); 
-
-
-	}
-
-	Dval = Pval/(delad*Tval);
-
-	Eval = Pval/(Gamma-1);
-
-
-
-	pGrid->U[k][j][i].d = Dval;
-        pGrid->U[k][j][i].E = Eval;
-	pGrid->U[k][j][i].M1 = 0.0;
-	pGrid->U[k][j][i].M2 = 0.0;
-	pGrid->U[k][j][i].M3 = 0.0;
-
-	pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
-	pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
-	pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
-	// Potential in E?
-      }
-    }
-  }
-
-/* Enroll gravitational potential to give acceleration in y-direction for 2D
- * Use special boundary condition routines.  In 2D, gravity is in the
- * y-direction, so special boundary conditions needed for x2
-*/
-
-  StaticGravPot = grav_pot1;
-  CoolingFunc = AtmosCool1D;
-  if (pDomain->Disp[1] == 0) bvals_mhd_fun(pDomain, left_x1,  reflect_ix1);
-  if (pDomain->MaxX[1] == pDomain->RootMaxX[1])
-    bvals_mhd_fun(pDomain, right_x1, reflect_ox1);
-
-  } /* end of 1D initialization  */
   if (pGrid->Nx[2] == 1) {
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
+      cc_pos(pGrid,1,j,k,&x1,&x2,&x3);
+      Tval = Tfunc(x2, dlnkdz, loz, delta, xi,delad);
+      Pval = Pfunc(x2, dlnkdz, loz, delta, xi,delad);
+      Rhoval = Pval/(delad*Tval);
+      fprintf(f,"%lg\t%lg\t%lg\t%lg\n",x2,Tval,Pval,Rhoval);
       for (i=is; i<=ie; i++) {
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+	    pGrid->U[k][j][i].d = Rhoval;
+        pGrid->U[k][j][i].E = Pval/(Gamma-1);
+	    pGrid->U[k][j][i].M1 = 0.0;
+	    pGrid->U[k][j][i].M2 = 0.0;
+	    pGrid->U[k][j][i].M3 = 0.0;
 
-	if (x2 < -loz) {
-	  Tval = T0 + log( (1-dlnkdz*x2)/(1+dlnkdz*loz))/dlnkdz;
-	  Pval = P0*exp( (1+dlnkdz*loz)/delad * exp(-dlnkdz*T0) *( expi(dlnkdz*Tval)-expi(dlnkdz*T0))); 
-
-	}
-	else if (x2 < 1+loz) {
-	  Tval = T1 - g*(1 + delta/delad)*(x2 - (1+loz));
-	  Pval = P1*pow(Tval/T1,1./(delad+delta));
-
-	}
-	else {
-	  Tval = Ttop - log( (1-dlnkdz*(1-x2))/(1+dlnkdz))/dlnkdz;
-	  Pval = Ptop*exp( (1+dlnkdz)/delad * exp(dlnkdz*Ttop) *( expi(-dlnkdz*Tval)-expi(-dlnkdz*Ttop))); 
-
-
-	}
-
-	Dval = Pval/(delad*Tval);
-
-	Eval = Pval/(Gamma-1);
-
-
-
-	pGrid->U[k][j][i].d = Dval;
-        pGrid->U[k][j][i].E = Eval;
-	pGrid->U[k][j][i].M1 = 0.0;
-	pGrid->U[k][j][i].M2 = 0.0;
-	pGrid->U[k][j][i].M3 = 0.0;
-
-	pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
-	pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
-	pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
+	    pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
+	    pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
+	    pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
 	// Potential in E?
       }
     }
   }
+  fclose(f);
 
 /* Enroll gravitational potential to give acceleration in y-direction for 2D
  * Use special boundary condition routines.  In 2D, gravity is in the
@@ -240,10 +160,9 @@ void problem(DomainS *pDomain)
 */
 
   StaticGravPot = grav_pot2;
-  CoolingFunc = AtmosCool2D;
-  if (pDomain->Disp[1] == 0) bvals_mhd_fun(pDomain, left_x2,  reflect_ix2);
-  if (pDomain->MaxX[1] == pDomain->RootMaxX[1])
-    bvals_mhd_fun(pDomain, right_x2, reflect_ox2);
+ // CoolingFunc = AtmosCooling2D;
+  bvals_mhd_fun(pDomain, left_x2,  flux_ix2);
+  bvals_mhd_fun(pDomain, right_x2, flux_ox2);
 
   } /* end of 2D initialization  */
 
@@ -258,42 +177,25 @@ void problem(DomainS *pDomain)
  */
 
   if (pGrid->Nx[2] > 1) {
+      printf("3D INIT!!\n");
   for (k=ks; k<=ke; k++) {
+    cc_pos(pGrid,1,1,k,&x1,&x2,&x3);
+      Tval = Tfunc(x3, dlnkdz, loz, delta, xi,delad);
+      Pval = Pfunc(x3, dlnkdz, loz, delta, xi,delad);
+      Rhoval = Pval/(delad*Tval);
     for (j=js; j<=je; j++) {
       for (i=is; i<=ie; i++) {
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-	if (x3 < -loz) {
-	  Tval = T0 + log( (1-dlnkdz*x3)/(1+dlnkdz*loz))/dlnkdz;
-	  Pval = P0*exp( (1+dlnkdz*loz)/delad * exp(-dlnkdz*T0) *( expi(dlnkdz*Tval)-expi(dlnkdz*T0))); 
 
-	}
-	else if (x3 < 1+loz) {
-	  Tval = T1 - g*(1 + delta/delad)*(x3 - (1+loz));
-	  Pval = P1*pow(Tval/T1,1./(delad+delta));
+        Rhoval = Pval/(delad*Tval);
+        pGrid->U[k][j][i].d = Rhoval;
+        pGrid->U[k][j][i].E = Pval/(Gamma-1);
+        pGrid->U[k][j][i].M1 = 0.0;
+        pGrid->U[k][j][i].M2 = 0.0;
+        pGrid->U[k][j][i].M3 = 0.0;
 
-	}
-	else {
-	  Tval = Ttop - log( (1-dlnkdz*(1-x3))/(1+dlnkdz))/dlnkdz;
-	  Pval = Ptop*exp( (1+dlnkdz)/delad * exp(dlnkdz*Ttop) *( expi(-dlnkdz*Tval)-expi(-dlnkdz*Ttop))); 
-
-
-	}
-
-	Dval = Pval/(delad*Tval);
-
-	Eval = Pval/(Gamma-1);
-
-
-
-	pGrid->U[k][j][i].d = Dval;
-        pGrid->U[k][j][i].E = Eval;
-	pGrid->U[k][j][i].M1 = 0.0;
-	pGrid->U[k][j][i].M2 = 0.0;
-	pGrid->U[k][j][i].M3 = 0.0;
-
-	pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
-	pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
-	pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
+        pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
+        pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
+        pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M3)/pGrid->U[k][j][i].d;
       }
     }
   }
@@ -304,11 +206,9 @@ void problem(DomainS *pDomain)
  */
 
   StaticGravPot = grav_pot3;
-  CoolingFunc = AtmosCool3D;
-
-  if (pDomain->Disp[2] == 0) bvals_mhd_fun(pDomain, left_x3,  reflect_ix3);
-  if (pDomain->MaxX[2] == pDomain->RootMaxX[2])
-    bvals_mhd_fun(pDomain, right_x3, reflect_ox3);
+ // CoolingFunc = AtmosCooling3D;
+  bvals_mhd_fun(pDomain, left_x3,  flux_ix3);
+  bvals_mhd_fun(pDomain, right_x3, flux_ox3);
 
   } /* end of 3D initialization */
 
@@ -342,20 +242,22 @@ void problem_read_restart(MeshS *pM, FILE *fp)
 
   if (pM->Nx[2] == 1) {
     StaticGravPot = grav_pot2;
+    CoolingFunc = AtmosCooling2D;
     for (nl=0; nl<(pM->NLevels); nl++){
       for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-        bvals_mhd_fun(&(pM->Domain[nl][nd]), left_x2,  reflect_ix2);
-        bvals_mhd_fun(&(pM->Domain[nl][nd]), right_x2, reflect_ox2);
+        bvals_mhd_fun(&(pM->Domain[nl][nd]), left_x2,  flux_ix2);
+        bvals_mhd_fun(&(pM->Domain[nl][nd]), right_x2, flux_ox2);
       }
     }
   }
  
   if (pM->Nx[2] > 1) {
-    StaticGravPot = grav_pot3;
+    StaticGravPot = grav_pot3; 
+    CoolingFunc = AtmosCooling3D;
     for (nl=0; nl<(pM->NLevels); nl++){
       for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-        bvals_mhd_fun(&(pM->Domain[nl][nd]), left_x3,  reflect_ix3);
-        bvals_mhd_fun(&(pM->Domain[nl][nd]), right_x3, reflect_ox3);
+        bvals_mhd_fun(&(pM->Domain[nl][nd]), left_x3,  flux_ix3);
+        bvals_mhd_fun(&(pM->Domain[nl][nd]), right_x3, flux_ox3);
       }
     }
   }
@@ -466,14 +368,15 @@ double ran2(long int *idum)
  *  \brief constant flux, no-slip wall b.c 
  */
 
-static void flux_ix2(GridS *pGrid)
+void flux_ix2(GridS *pGrid)
 {
   int js = pGrid->js;
   int ks = pGrid->ks, ke = pGrid->ke;
   int i,j,k,il,iu,ku; /* i-lower/upper;  k-upper */
-  Real Tval, Pval, Rhoval
+  Real Tval, Pval, Rhoval;
+  Real T0, P0, D0,E0,M10,M20;
   Real delad = 1. - 1./Gamma;
-	Real x1,x2,x3,x10,x20,x30;
+  Real x1,x2,x3,x10,x20,x30;
   Real dlnkdz = 3.5;
 
   iu = pGrid->ie + nghost;
@@ -483,22 +386,27 @@ static void flux_ix2(GridS *pGrid)
 
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
+        cc_pos(pGrid,1,js-j,k,&x1,&x2,&x3);
+      Tval = Tfunc(x2, 3.5, .1, 1e-3, 3.,.4);
+      Pval = Pfunc(x2, 3.5, .1, 1e-3,3.,.4);
+      Rhoval = Pval/(.4*Tval);
       for (i=il; i<=iu; i++) {
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 
-				D0 = pGrid->U[k][js][i].d;				
-				E0 = pGrid->U[k][js][i].E;				
-				P0 = (Gamma-1)*(E0 - .5*(SQR(pGrid->U[k][js][i].M1) SQR(pGrid->U[k][js][i].M2)-SQR(pGrid->U[k][js][i].M3))/D0);
-				T0 = P0/(delad*D0);
+//		D0 = pGrid->U[k][js][i].d;				
+//		E0 = pGrid->U[k][js][i].E;				
+//        M10 = pGrid->U[k][js][i].M1;
+//        M20 = pGrid->U[k][js][i].M2;
+//		P0 = (Gamma-1)*(E0 - .5*(M10*M10+M20*M20)/D0);
+//		T0 = P0/(delad*D0);
+//
+//		Tval = T0 + log((1-dlnkdz*x2)/(1-dlnkdz*x20))/dlnkdz; // Exact conductive T(z) 
+//		Pval = P0*exp( (1-dlnkdz*x20)/delad*exp(-dlnkdz*T0)*(eix(dlnkdz*Tval)-eix(dlnkdz*T0))); // Exact hydrostatic pressure for T(z)
+//		Rhoval = Pval/(delad*Tval);
 
-				Tval = T0 + log((1-dlnkdz*x2)/(1-dlnkdz*x20))/dlnkdz; // Exact conductive T(z) 
-				Pval = P0*exp( (1-dlnkdz*x20)/delad*exp(-dlnkdz*T0)*(eix(dlnkdz*Tval)-eix(dlnkdz*T0))); // Exact hydrostatic pressure for T(z)
-				Rhoval = Pval/(delad*Tval);
-
-				pGrid->U[k][js-j][i].d = Rhoval; 
-				pGrid->U[k][js-j][i].M1 = pGrid->U[k][js+(j-1)][i].M1;	// Zero gradient in horizontal velocities (stress free)	
-				pGrid->U[k][js-j][i].M2 = -pGrid->U[k][js+(j-1)][i].M2;	// Zero vertical velocity	
-				pGrid->U[k][js-j][i].d = Pval/(Gamma-1) + .5/Rhoval * (SQR(pGrid->U[k][js-j][i].M1) + SQR(pGrid->U[k][js-j][i].M2)+SQR(pGrid->U[k][js-j][i].M3));
+		pGrid->U[k][js-j][i].d = Rhoval; 
+		pGrid->U[k][js-j][i].M1 = pGrid->U[k][js+(j-1)][i].M1;	// Zero gradient in horizontal velocities (stress free)	
+		pGrid->U[k][js-j][i].M2 = -pGrid->U[k][js+(j-1)][i].M2;	// Zero vertical velocity	
+		pGrid->U[k][js-j][i].E = Pval/(Gamma-1); //+ .5*(SQR(pGrid->U[k][js-j][i].M1) + SQR(pGrid->U[k][js-j][i].M2)+SQR(pGrid->U[k][js-j][i].M3))/Rhoval;
 				
       }
     }
@@ -514,14 +422,15 @@ static void flux_ix2(GridS *pGrid)
  *  \brief Special reflecting boundary functions in x2 for 2D sims
  */
 
-static void reflect_ox2(GridS *pGrid)
+void flux_ox2(GridS *pGrid)
 {
   int je = pGrid->je;
   int ks = pGrid->ks, ke = pGrid->ke, ku;
   int i,j,k,il,iu,jl,ju; /* i/j-lower/upper */
-  Real Tval, Pval, Rhoval
+  Real Tval, Pval, Rhoval;
+  Real T0, P0, D0,E0;
   Real delad = 1. - 1./Gamma;
-	Real x1,x2,x3,x10,x20,x30;
+  Real x1,x2,x3,x10,x20,x30;
   Real dlnkdz = 3.5;
 
   iu = pGrid->ie + nghost;
@@ -536,26 +445,29 @@ static void reflect_ox2(GridS *pGrid)
   }
 
   cc_pos(pGrid,1,je,1,&x10,&x20,&x30);
-	x20 = 1-x20;
+  x20 = 1-x20;
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
       for (i=il; i<=iu; i++) {
-        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
-				x2 = 1.-x2;
+        cc_pos(pGrid,i,je+j,k,&x1,&x2,&x3);
+      Tval = Tfunc(x2, 3.5, .1, 1e-3, 3.,.4);
+      Pval = Pfunc(x2, 3.5, .1, 1e-3,3.,.4);
+      Rhoval = Pval/(.4*Tval);
+	//	x2 = 1.-x2;
 
-				D0 = pGrid->U[k][je][i].d;				
-				E0 = pGrid->U[k][je][i].E;				
-				P0 = (Gamma-1)*(E0 - .5*(SQR(pGrid->U[k][je][i].M1) SQR(pGrid->U[k][je][i].M2)-SQR(pGrid->U[k][je][i].M3))/D0);
-				T0 = P0/(delad*D0);
+	//	D0 = pGrid->U[k][je][i].d;				
+	//	E0 = pGrid->U[k][je][i].E;				
+	//	P0 = (Gamma-1)*(E0 - .5*(SQR(pGrid->U[k][je][i].M1)+ SQR(pGrid->U[k][je][i].M2)+SQR(pGrid->U[k][je][i].M3))/D0);
+	//	T0 = P0/(delad*D0);
 
-				Tval = T0 - log((1-dlnkdz*x2)/(1-dlnkdz*x20))/dlnkdz; // Exact conductive T(z) 
-				Pval = P0*exp( (1-dlnkdz*x20)/delad*exp(dlnkdz*T0)*(eix(-dlnkdz*Tval)-eix(-dlnkdz*T0))); // Exact hydrostatic pressure for T(z)
-				Rhoval = Pval/(delad*Tval);
+	//	Tval = T0 - log((1-dlnkdz*x2)/(1-dlnkdz*x20))/dlnkdz; // Exact conductive T(z) 
+	//	Pval = P0*exp( (1-dlnkdz*x20)/delad*exp(dlnkdz*T0)*(eix(-dlnkdz*Tval)-eix(-dlnkdz*T0))); // Exact hydrostatic pressure for T(z)
+	//	Rhoval = Pval/(delad*Tval);
 
-				pGrid->U[k][je+j][i].d = Rhoval; 
-				pGrid->U[k][je+j][i].M1 = pGrid->U[k][je-(j-1)][i].M1;	// Zero gradient in horizontal momenta (stress free)	
-				pGrid->U[k][je+j][i].M2 = -pGrid->U[k][je-(j-1)][i].M2;	// Zero vertical momentum 
-				pGrid->U[k][je+j][i].d = Pval/(Gamma-1) + .5/Rhoval * (SQR(pGrid->U[k][je+j][i].M1) + SQR(pGrid->U[k][je+j][i].M2)+SQR(pGrid->U[k][je+j][i].M3));
+		pGrid->U[k][je+j][i].d = Rhoval; 
+		pGrid->U[k][je+j][i].M1 = pGrid->U[k][je-(j-1)][i].M1;	// Zero gradient in horizontal momenta (stress free)	
+		pGrid->U[k][je+j][i].M2 = -pGrid->U[k][je-(j-1)][i].M2;	// Zero vertical momentum 
+		pGrid->U[k][je+j][i].E = Pval/(Gamma-1); // + .5/Rhoval * (SQR(pGrid->U[k][je+j][i].M1) + SQR(pGrid->U[k][je+j][i].M2));
       }
     }
   }
@@ -570,10 +482,15 @@ static void reflect_ox2(GridS *pGrid)
  *  \brief Special reflecting boundary functions in x3 for 2D sims
  */
 
-static void reflect_ix3(GridS *pGrid)
+void flux_ix3(GridS *pGrid)
 {
   int ks = pGrid->ks;
   int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
+  Real Tval, Pval, Rhoval;
+  Real T0, P0, D0,E0;
+  Real delad = 1. - 1./Gamma;
+  Real x1,x2,x3,x10,x20,x30;
+  Real dlnkdz = 3.5;
 
   iu = pGrid->ie + nghost;
   il = pGrid->is - nghost;
@@ -585,41 +502,30 @@ static void reflect_ix3(GridS *pGrid)
     jl = pGrid->js;
   }
 
+  cc_pos(pGrid,1,1,ks,&x10,&x20,&x30);
   for (k=1; k<=nghost; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        pGrid->U[ks-k][j][i]    =  pGrid->U[ks+(k-1)][j][i];
-        pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks-k][j][i].M3; /* reflect 3-mom. */
-        pGrid->U[ks-k][j][i].E +=
-          pGrid->U[ks+(k-1)][j][i].d*0.1*(2*k-1)*pGrid->dx3/Gamma_1;
-      }
-    }
-  }
+        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
 
-#ifdef MHD
-  for (k=1; k<=nghost; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B1i[ks-k][j][i] = pGrid->B1i[ks+(k-1)][j][i];
-      }
-    }
-  }
-  for (k=1; k<=nghost; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B2i[ks-k][j][i] = pGrid->B2i[ks+(k-1)][j][i];
-      }
-    }
-  }
+		D0 = pGrid->U[ks][j][i].d;				
+		E0 = pGrid->U[ks][j][i].E;				
+		P0 = (Gamma-1)*(E0 - .5*(SQR(pGrid->U[ks][j][i].M1) + SQR(pGrid->U[ks][j][i].M2)+SQR(pGrid->U[ks][j][i].M3))/D0);
+		T0 = P0/(delad*D0);
 
-  for (k=1; k<=nghost; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B3i[ks-k][j][i] = pGrid->B3i[ks+(k-1)][j][i];
+		Tval = T0 + log((1-dlnkdz*x3)/(1-dlnkdz*x30))/dlnkdz; // Exact conductive T(z) 
+		Pval = P0*exp( (1-dlnkdz*x30)/delad*exp(-dlnkdz*T0)*(eix(dlnkdz*Tval)-eix(dlnkdz*T0))); // Exact hydrostatic pressure for T(z)
+		Rhoval = Pval/(delad*Tval);
+
+		pGrid->U[ks-k][j][i].d = Rhoval; 
+		pGrid->U[ks-k][j][i].M1 = pGrid->U[ks+(k-1)][j][i].M1;	// Zero gradient in horizontal velocities (stress free)	
+		pGrid->U[ks-k][j][i].M2 = pGrid->U[ks+(k-1)][j][i].M2;	// Zero gradient in horizontal velocities (stress free)		
+		pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks+(k-1)][j][i].M3;	// Zero vertical velocity	
+		pGrid->U[ks-k][j][i].E = Pval/(Gamma-1) + .5/Rhoval * (SQR(pGrid->U[ks-k][j][i].M1) + SQR(pGrid->U[ks-k][j][i].M2)+SQR(pGrid->U[ks-k][j][i].M3));
+
       }
     }
   }
-#endif
 
   return;
 }
@@ -629,10 +535,15 @@ static void reflect_ix3(GridS *pGrid)
  *  \brief Special reflecting boundary functions in x3 for 3D sims
  */
 
-static void reflect_ox3(GridS *pGrid)
+void flux_ox3(GridS *pGrid)
 {
   int ke = pGrid->ke;
   int i,j,k ,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
+  Real Tval, Pval, Rhoval;
+  Real T0, P0, D0,E0;
+  Real delad = 1. - 1./Gamma;
+  Real x1,x2,x3,x10,x20,x30;
+  Real dlnkdz = 3.5;
 
   iu = pGrid->ie + nghost;
   il = pGrid->is - nghost;
@@ -643,43 +554,33 @@ static void reflect_ox3(GridS *pGrid)
     ju = pGrid->je;
     jl = pGrid->js;
   }
+  cc_pos(pGrid,1,1,ke,&x10,&x20,&x30);
+  x30 = 1-x30;
   for (k=1; k<=nghost; k++) {
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
-        pGrid->U[ke+k][j][i]    =  pGrid->U[ke-(k-1)][j][i];
-        pGrid->U[ke+k][j][i].M3 = -pGrid->U[ke+k][j][i].M3; /* reflect 3-mom. */
-        pGrid->U[ke+k][j][i].E -=
-          pGrid->U[ke-(k-1)][j][i].d*0.1*(2*k-1)*pGrid->dx3/Gamma_1;
-      }
-    }
-  }
+        cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
+		x3 = 1.-x3;
 
-#ifdef MHD
-  for (k=1; k<=nghost; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B1i[ke+k][j][i] = pGrid->B1i[ke-(k-1)][j][i];
-      }
-    }
-  }
+		D0 = pGrid->U[ke][j][i].d;				
+		E0 = pGrid->U[ke][j][i].E;				
+		P0 = (Gamma-1)*(E0 - .5*(SQR(pGrid->U[ke][j][i].M1)+ SQR(pGrid->U[ke][j][i].M2)+SQR(pGrid->U[ke][j][i].M3))/D0);
+		T0 = P0/(delad*D0);
 
-  for (k=1; k<=nghost; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B2i[ke+k][j][i] = pGrid->B2i[ke-(k-1)][j][i];
-      }
-    }
-  }
+		Tval = T0 - log((1-dlnkdz*x3)/(1-dlnkdz*x30))/dlnkdz; // Exact conductive T(z) 
+		Pval = P0*exp( (1-dlnkdz*x30)/delad*exp(dlnkdz*T0)*(eix(-dlnkdz*Tval)-eix(-dlnkdz*T0))); // Exact hydrostatic pressure for T(z)
+		Rhoval = Pval/(delad*Tval);
 
-/* Note that k=ke+1 is not a boundary condition for the interface field B3i */
-  for (k=2; k<=nghost; k++) {
-    for (j=jl; j<=ju; j++) {
-      for (i=il; i<=iu; i++) {
-        pGrid->B3i[ke+k][j][i] = pGrid->B3i[ke-(k-1)][j][i];
+		pGrid->U[ke+k][j][i].d = Rhoval; 
+		pGrid->U[ke+k][j][i].M1 = pGrid->U[ke-(k-1)][j][i].M1;	// Zero gradient in horizontal momenta (stress free)	
+		pGrid->U[ke+k][j][i].M2 = pGrid->U[ke-(k-1)][j][i].M2;	// Zero vertical momentum 
+		pGrid->U[ke+k][j][i].M3 = -pGrid->U[ke-(k-1)][j][i].M3;	// Zero vertical momentum 
+		pGrid->U[ke+k][j][i].E = Pval/(Gamma-1) + .5/Rhoval * (SQR(pGrid->U[ke+k][j][i].M1) + SQR(pGrid->U[ke+k][j][i].M2)+SQR(pGrid->U[ke+k][j][i].M3));
+
+
       }
     }
   }
-#endif
 
   return;
 }
@@ -749,7 +650,7 @@ static Real eix(Real x) {
   Real sum,term;
   if (x == 0.0) return -fpmax;
   
-  if (x < 0.0) return -de1xb(-x);
+  if (x < 0.0) return -e1xb(-x);
   if (fabs(x) <= 40.) {
     // Power series around x=0
   
@@ -773,4 +674,46 @@ static Real eix(Real x) {
     sum += term;
   }
   return exp(x)/x * sum;
+}
+
+
+Real Tfunc(Real z, Real a, Real loz, Real delta, Real xi, Real delad) {
+    Real Ttop, T1, T0;
+
+    Ttop = xi/delad;
+    T1 = Ttop + log((1+a)/(1+a*loz))/a;
+    T0 = T1 + (1. + delta/delad)*(1+2*loz);
+    
+    if (z < -loz) {
+        return T0 + log((1-a*z)/(1+a*loz))/a;
+    }
+
+    if (z < 1+loz) {
+        return T1 - (1. + delta/delad)*(z -(1+loz));
+    }
+
+    return Ttop - log((1-a*(1-z))/(1+a))/a;
+}
+Real Pfunc(Real z, Real a, Real loz, Real delta, Real xi, Real delad) {
+    Real Ptop, P1, P0,Tval;
+    Real Ttop, T1, T0;
+
+    Ttop = xi/delad;
+    T1 = Ttop + log((1+a)/(1+a*loz))/a;
+    T0 = T1 + (1. + delta/delad)*(1+2*loz);
+
+    Ptop = xi;
+    P1 = Ptop *exp( (1+a)/delad *exp(a*Ttop)*(eix(-a*T1)-eix(-a*Ttop)));
+    P0 = P1 *pow(T0/T1,1./(delad+delta));
+
+    Tval = Tfunc(z,a,loz,delta,xi,delad);
+    if (z < -loz) {
+        return P0*exp((1+a*loz)/delad *exp(-a*T0)*(eix(a*Tval)-eix(a*T0)));
+    }
+
+    if (z < 1+loz) {
+        return P1*pow(Tval/T1,1./(delad+delta));
+    }
+
+    return Ptop *exp((1+a)/delad *exp(a*Ttop)*(eix(-a*Tval)-eix(-a*Ttop)));
 }

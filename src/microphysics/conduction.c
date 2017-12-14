@@ -169,14 +169,16 @@ Real heatcond_prof(const Real x1, const Real x2, const Real x3) {
   Real result;
   Real logfac;
 
+  Real xval = (x2 - zcval)/dval;
+  Real xmval = (-1. - zcval)/dval;
+  Real x1val = (1-x2 - zcval)/dval;
+  Real xm1val = (1.-2. - zcval)/dval;
 
-  logfac = exp(1./dval) + exp(zcval/dval);
-  logfac /= exp(x2/dval) + exp(zcval/dval);
-
-
-  result = fmin - aval*(x2 -1. + dval*log(logfac))
+  logfac = (1 + exp(xval))*(1+exp(-x1val));
+  logfac /= (1+exp(xmval))*(1+exp(-xm1val));
+  result =  1. - aval*x2 + aval*dval*log(logfac);
  
-  return result;
+  return result*F0;
 
 }
 
@@ -203,7 +205,7 @@ void HeatFlux_iso(DomainS *pD)
       //kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
       
       cc_pos(pG,i,j,ks,&x1,&x2,&x3);
-      kd = heatcond_prof(x1,x2,x3)
+      kd = heatcond_prof(x1,x2,x3);
       Q[k][j][i].x1 += kd*(Temp[k][j][i] - Temp[k][j][i-1])/pG->dx1;
     }
   }}
@@ -216,7 +218,7 @@ void HeatFlux_iso(DomainS *pD)
       for (i=is; i<=ie; i++) {
       //  kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
-        kd = heatcond_prof(x1,x2,x3)
+        kd = heatcond_prof(x1,x2,x3);
         Q[k][j][i].x2 += kd*(Temp[k][j][i] - Temp[k][j-1][i])/pG->dx2;
       }
     }}
@@ -230,7 +232,7 @@ void HeatFlux_iso(DomainS *pD)
       for (i=is; i<=ie; i++) {
         //kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
         cc_pos(pG,i,j,ks,&x1,&x2,&x3);
-        kd = heatcond_prof(x1,x2,x3)
+        kd = heatcond_prof(x1,x2,x3);
         Q[k][j][i].x3 += kd*(Temp[k][j][i] - Temp[k-1][j][i])/pG->dx3;
       }
     }}

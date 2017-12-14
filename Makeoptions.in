@@ -102,21 +102,27 @@ ifeq ($(MACHINE),zenith)
   FFTWLIB = -L/usr/local/fftw3 -lfftw3
   FFTWINC = -I/usr/local/fftw3
 else
-ifeq ($(MACHINE),macosx)
+ifeq ($(MACHINE),macosx2)
   CC = gcc
   LDR = gcc
   OPT = -O3 
   FFTWLIB = -L/opt/local/lib -lfftw3
   FFTWINC = -I/opt/local/include
 else
+ifeq ($(MACHINE),macosx)
+  CC = gcc
+  LDR = gcc
+  OPT = -O3 
+else
 ifeq ($(MACHINE),linux)
   CC = gcc
   LDR = gcc
   OPT = -O3 
 else
-  CC = gcc-6
-  LDR = gcc-6
+  CC = gcc
+  LDR = gcc
   OPT = -O3 
+endif
 endif
 endif
 endif
