@@ -44,3 +44,7 @@ def plotit(y,T,d,p,s,j=10,avg=True,fig=None,axes=None):
     return fig,axes
 
 
+def summary(i):
+    fig,axes = plotit(*loadit(0))
+    plotit(*loadit(i),fig=fig,axes=axes)
+    plot2d(loadit(i)[-1])
