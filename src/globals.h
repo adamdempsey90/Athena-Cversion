@@ -24,6 +24,7 @@ Real d_MIN = TINY_NUMBER;    /*!< density floor */
 
 GravPotFun_t StaticGravPot = NULL;
 CoolingFun_t CoolingFunc = NULL;
+HeatCondFun_t HeatCondFunc = NULL;
 #ifdef SELF_GRAVITY
 Real four_pi_G, grav_mean_rho;    /*!< 4\pi G and mean density in domain */
 #endif
@@ -87,6 +88,7 @@ extern Real d_MIN;
 
 extern GravPotFun_t StaticGravPot;
 extern CoolingFun_t CoolingFunc;
+extern HeatCondFun_t HeatCondFunc;
 #ifdef SELF_GRAVITY
 extern Real four_pi_G, grav_mean_rho;
 #endif

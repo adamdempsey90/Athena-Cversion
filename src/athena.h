@@ -527,6 +527,7 @@ typedef Real (*ShearFun_t)(const Real x1);
 /*! \fn Real (*CoolingFun_t)(const Real d, const Real p, const Real dt);
  *  \brief Cooling function. */
 typedef Real (*CoolingFun_t)(const Real d, const Real p, const Real dt, const Real x1, const Real x2, const Real x3);
+typedef Real (*HeatCondFun_t)(const Real d, const Real p, const Real x1, const Real x2, const Real x3);
 #ifdef RESISTIVITY
 /*! \fn void (*EtaFun_t)(GridS *pG, int i, int j, int k,
                          Real *eta_O, Real *eta_H, Real *eta_A)

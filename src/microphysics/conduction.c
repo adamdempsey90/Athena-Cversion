@@ -160,29 +160,6 @@ void conduction(DomainS *pD)
 }
 
 
-Real heatcond_prof(const Real x1, const Real x2, const Real x3) {
- 
-  Real aval = 3.5;
-  Real fmin = 0.1;
-  Real zcval = (1.-fmin)/aval;
-  Real dval = 0.05;
-  Real F0 = 1e-3;
-
-  Real result;
-  Real logfac;
-
-  Real xval = (x2 - zcval)/dval;
-  Real xmval = (-1. - zcval)/dval;
-  Real x1val = (1-x2 - zcval)/dval;
-  Real xm1val = (1.-(-1.) - zcval)/dval;
-
-  logfac = (1 + exp(xval))*(1+exp(-x1val));
-  logfac /= (1+exp(xmval))*(1+exp(-xm1val));
-  result =  1. - aval*x2 + aval*dval*log(logfac);
- 
-  return result*F0;
-
-}
 
 /*----------------------------------------------------------------------------*/
 /*! \fn void HeatFlux_iso(DomainS *pD)
@@ -199,12 +176,13 @@ void HeatFlux_iso(DomainS *pD)
   Real heatcond,delad;
 
 /* Add heat fluxes in 1-direction */ 
-
-//	FILE *f = fopen("/home/adam/Athena-Cversion/bin/kappa.dat","w");
+//
+//	//FILE *f = fopen("/home/adam/Athena-Cversion/bin/kappa.dat","w");
+//	FILE *f = fopen("/Users/zeus/Athena-Cversion/bin/kappa.dat","w");
 //
 //  for(j=1;j<=je+nghost;j++) {
 //		cc_pos(pG,1,j,1,&x1,&x2,&x3);
-//		fprintf(f,"%lg\t%lg\n",x2,heatcond_prof(x1,x2,x3));
+//		fprintf(f,"%lg\t%lg\n",x2,(*HeatCondFunc)(1.,1.,x1-.5*pG->dx1,x2,x3));
 //	}
 //	fclose(f);
 
@@ -216,7 +194,7 @@ void HeatFlux_iso(DomainS *pD)
     for (i=is; i<=ie+1; i++) {
       //kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j][i-1].d);
       cc_pos(pG,i,j,k,&x1,&x2,&x3);
-      heatcond = heatcond_prof(x1-.5*pG->dx1,x2,x3)/delad;
+      heatcond = (*HeatCondFunc)(1.,1.,x1-.5*pG->dx1,x2,x3)/delad;
 
       Q[k][j][i].x1 += heatcond*(Temp[k][j][i]-Temp[k][j][i-1])/pG->dx1;
     }
@@ -230,7 +208,7 @@ void HeatFlux_iso(DomainS *pD)
       for (i=is; i<=ie; i++) {
       //  kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k][j-1][i].d);
       cc_pos(pG,i,j,k,&x1,&x2,&x3);
-      heatcond = heatcond_prof(x1,x2-.5*pG->dx2,x3)/delad;
+      heatcond = (*HeatCondFunc)(1.0,1.0,x1,x2-.5*pG->dx2,x3)/delad;
         Q[k][j][i].x2 += heatcond*(Temp[k][j][i]-Temp[k][j-1][i])/pG->dx2;
       }
     }}
@@ -244,7 +222,7 @@ void HeatFlux_iso(DomainS *pD)
       for (i=is; i<=ie; i++) {
         //kd = kappa_iso*0.5*(pG->U[k][j][i].d + pG->U[k-1][j][i].d);
       cc_pos(pG,i,j,k,&x1,&x2,&x3);
-      heatcond = heatcond_prof(x1,x2,x3-.5*pG->dx3)/delad;
+      heatcond = (*HeatCondFunc)(1.0,1.0,x1,x2,x3-.5*pG->dx3)/delad;
         Q[k][j][i].x3 += heatcond*(Temp[k][j][i]-Temp[k-1][j][i])/pG->dx3;
       }
     }}

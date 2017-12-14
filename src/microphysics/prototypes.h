@@ -17,7 +17,6 @@
 void conduction(DomainS *pD);
 void conduction_init(MeshS *pM);
 void conduction_destruct(void);
-Real heatcond_prof(const Real x1, const Real x2, const Real x3);
 #endif
 
 /* cool.c */
