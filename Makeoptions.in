@@ -15,9 +15,9 @@ MACHINE = default
 
 #-------------------  default definitions  -------------------------------------
 
-CC  = @CC@
-LDR = @CC@
-OPT = @COMPILER_OPTS@
+CC  = gcc
+LDR = gcc
+OPT = -O3 
 CUSTLIBS =
 MPIINC =
 MPILIB =
@@ -119,9 +119,23 @@ ifeq ($(MACHINE),linux)
   LDR = gcc
   OPT = -O3 
 else
-  CC = gcc
-  LDR = gcc
+ifeq ($(MACHINE),quest)
+  CC  = icc
+  LDR = icc
+ifeq (@MPI_MODE@,MPI_PARALLEL)
+  CC  = mpicc
+  LDR  = mpicc
+endif
+  OPT = -O3 -g
+  MPIINC= -I/software/mpi/openmpi-1.10.5-intel2015.0-RH7/include
+  MPILIB= -L/software/mpi/openmpi-1.10.5-intel2015.0-RH7/lib -lmpi
+else
+ifeq ($(MACHINE),mpi)
+  CC = mpicc
+  LDR = mpicc
   OPT = -O3 
+endif
+endif
 endif
 endif
 endif

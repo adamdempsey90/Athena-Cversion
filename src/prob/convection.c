@@ -147,16 +147,16 @@ void problem(DomainS *pDomain)
   if (pGrid->Nx[2] == 1) {
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
-      cc_pos(pGrid,1,j,k,&x1,&x2,&x3);
+ //     fprintf(f,"%lg\t%lg\t%lg\t%lg\n",x2,Tval,Pval,Rhoval);
+      for (i=is; i<=ie; i++) {
+      cc_pos(pGrid,i,j,k,&x1,&x2,&x3);
       Tval = Tfunc(x2);
       Pval = Pfunc(x2);
       Rhoval = Pval/(delad*Tval);
- //     fprintf(f,"%lg\t%lg\t%lg\t%lg\n",x2,Tval,Pval,Rhoval);
-      for (i=is; i<=ie; i++) {
 	    pGrid->U[k][j][i].d = Rhoval;
         pGrid->U[k][j][i].E = Pval/(Gamma-1);
-	    pGrid->U[k][j][i].M1 = 0.0;
-	    pGrid->U[k][j][i].M2 = 0.0;
+	    pGrid->U[k][j][i].M1 = Rhoval*1e-4*cos(2*M_PI/3 * (x2+1)*4)*sin(2*M_PI*(x1+.5)*3);
+	    pGrid->U[k][j][i].M2 = Rhoval*1e-3*sin(2*M_PI/3 * (x2+1)*4)*cos(2*M_PI*(x1+.5)*3);
 	    pGrid->U[k][j][i].M3 = 0.0;
 
 	    pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
