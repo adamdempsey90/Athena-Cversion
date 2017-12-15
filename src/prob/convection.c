@@ -67,9 +67,14 @@ void constT_ox2(GridS *pGrid);
 
 void flux_ix3(GridS *pGrid);
 void flux_ox3(GridS *pGrid);
+void freeze_ix3(GridS *pGrid);
+void freeze_ox3(GridS *pGrid);
+void constT_ix3(GridS *pGrid);
+void constT_ox3(GridS *pGrid);
 
 
-Real heatcond_prof(const Real dens, const Real Press, const Real x1, const Real x2, const Real x3);
+Real heatcond_prof2(const Real dens, const Real Press, const Real x1, const Real x2, const Real x3);
+Real heatcond_prof3(const Real dens, const Real Press, const Real x1, const Real x2, const Real x3);
 static Real grav_pot1(const Real x1, const Real x2, const Real x3);
 static Real grav_pot2(const Real x1, const Real x2, const Real x3);
 static Real grav_pot3(const Real x1, const Real x2, const Real x3);
@@ -109,7 +114,9 @@ void problem(DomainS *pDomain)
   kxs = pGrid->Disp[2];
   iseed = -1 - (ixs + pDomain->Nx[0]*(jxs + pDomain->Nx[1]*kxs));
 
-
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+#endif
   kappa_iso = par_getd_def("problem","kappa_iso",1.0);
   a = par_getd_def("problem","a",3.5);
   xi = par_getd_def("problem","xi",3.0);
@@ -145,7 +152,7 @@ void problem(DomainS *pDomain)
 
 //  FILE *f = fopen("/Users/zeus/Athena-Cversion/bin/ics.dat","w");
 
-  if (pGrid->Nx[2] == 1) {
+  if (pGrid->Nx[2] == 1) { // 2D initialization
   for (k=ks; k<=ke; k++) {
     for (j=js; j<=je; j++) {
  //     fprintf(f,"%lg\t%lg\t%lg\t%lg\n",x2,Tval,Pval,Rhoval);
@@ -176,7 +183,7 @@ void problem(DomainS *pDomain)
 
   StaticGravPot = grav_pot2;
  // CoolingFunc = AtmosCooling2D;
-  HeatCondFunc = heatcond_prof;
+  HeatCondFunc = heatcond_prof2;
  
   bvals_mhd_fun(pDomain, left_x2,  constT_ix2);
   bvals_mhd_fun(pDomain, right_x2, flux_ox2);
@@ -184,16 +191,7 @@ void problem(DomainS *pDomain)
   } /* end of 2D initialization  */
 
 /* 3D PROBLEM ----------------------------------------------------------------*/
-/* Initialize two fluids with interface at z=0.0
- * Pressure scaled to give a sound speed of 1 at the interface
- * in the light (lower, d=1) fluid
- * iprob = 1 -- Perturb V3 using single mode
- * iprob = 2 -- Perturb V3 using multiple mode
- * iprob = 3 -- B in light fluid only, with multimode perturbation
- * iprob = 4 -- B rotated by "angle" at interface, multimode perturbation
- */
-
-  if (pGrid->Nx[2] > 1) {
+  if (pGrid->Nx[2] > 1) { // 3D initialization
       printf("3D INIT!!\n");
   for (k=ks; k<=ke; k++) {
     cc_pos(pGrid,1,1,k,&x1,&x2,&x3);
@@ -206,9 +204,9 @@ void problem(DomainS *pDomain)
         Rhoval = Pval/(delad*Tval);
         pGrid->U[k][j][i].d = Rhoval;
         pGrid->U[k][j][i].E = Pval/(Gamma-1);
-        pGrid->U[k][j][i].M1 = 0.0;
-        pGrid->U[k][j][i].M2 = 0.0;
-        pGrid->U[k][j][i].M3 = 0.0;
+	    pGrid->U[k][j][i].M1 = Rhoval*amp*cos(2*M_PI/3 * (x2+1)*3)*sin(2*M_PI*(x1+.5)*3);
+	    pGrid->U[k][j][i].M2 = Rhoval*amp*sin(2*M_PI/3 * (x2+1)*2)*cos(2*M_PI*(x1+.5)*3);
+	    pGrid->U[k][j][i].M3 = Rhoval*amp*sin(2*M_PI/3 * (x2+1)*4)*sin(2*M_PI*(x1+.5)*3);
 
         pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
         pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M2)/pGrid->U[k][j][i].d;
@@ -224,14 +222,16 @@ void problem(DomainS *pDomain)
 
   StaticGravPot = grav_pot3;
  // CoolingFunc = AtmosCooling3D;
-  bvals_mhd_fun(pDomain, left_x3,  flux_ix3);
+  HeatCondFunc = heatcond_prof3;
+ 
+  bvals_mhd_fun(pDomain, left_x3,  constT_ix3);
   bvals_mhd_fun(pDomain, right_x3, flux_ox3);
 
   } /* end of 3D initialization */
 
   return;
 }
-Real heatcond_prof(const Real dens, const Real Press, const Real x1, const Real x2, const Real x3) {
+Real heatcond_prof2(const Real dens, const Real Press, const Real x1, const Real x2, const Real x3) {
  
   Real zcval = (1.-minF)/a;
 
@@ -251,6 +251,27 @@ Real heatcond_prof(const Real dens, const Real Press, const Real x1, const Real 
   return result*Ftot;
 
 }
+Real heatcond_prof3(const Real dens, const Real Press, const Real x1, const Real x2, const Real x3) {
+ 
+  Real zcval = (1.-minF)/a;
+
+
+  Real result;
+  Real logfac;
+
+  Real xval = (x3 - zcval)/ksmooth;
+  Real xmval = (-1. - zcval)/ksmooth;
+  Real x1val = (1-x3 - zcval)/ksmooth;
+  Real xm1val = (1.-(-1.) - zcval)/ksmooth;
+
+  logfac = (1 + exp(xval))*(1+exp(-x1val));
+  logfac /= (1+exp(xmval))*(1+exp(-xm1val));
+  result =  1. - a*x3 + a*ksmooth*log(logfac);
+ 
+  return result*Ftot;
+
+}
+
 
 /*==============================================================================
  * PROBLEM USER FUNCTIONS:
@@ -276,24 +297,44 @@ void problem_write_restart(MeshS *pM, FILE *fp)
 void problem_read_restart(MeshS *pM, FILE *fp)
 {
   int nl,nd;
+  GridS *pG;
+  DomainS *pD;
+#ifdef VISCOSITY
+  nu_iso = par_getd_def("problem","nu_iso",0.0);
+#endif
+  kappa_iso = par_getd_def("problem","kappa_iso",1.0);
+  a = par_getd_def("problem","a",3.5);
+  xi = par_getd_def("problem","xi",3.0);
+  Ftot = par_getd_def("problem","Ftot",1e-3);
+  g = par_getd_def("problem","g",1.0);
+  loz = par_getd_def("problem","loz",0.1);
+  delta = par_getd_def("problem","delta",1e-3);
+  ksmooth = par_getd_def("problem","ksmooth",0.05);
+  minF = par_getd_def("problem","minF",0.1);
+  amp = par_getd_def("problem","amp",1e-6);
 
   if (pM->Nx[2] == 1) {
     StaticGravPot = grav_pot2;
-    CoolingFunc = AtmosCooling2D;
+//    CoolingFunc = AtmosCooling2D;
+    HeatCondFunc = heatcond_prof2;
     for (nl=0; nl<(pM->NLevels); nl++){
       for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
         bvals_mhd_fun(&(pM->Domain[nl][nd]), left_x2,  constT_ix2);
         bvals_mhd_fun(&(pM->Domain[nl][nd]), right_x2, flux_ox2);
+       // bvals_mhd(&(pM->Domain[nl][nd]));
+        //set_bvals_fun(left_x2,  constT_ix2);
+        //set_bvals_fun(right_x2, flux_ox2);
       }
     }
   }
  
   if (pM->Nx[2] > 1) {
     StaticGravPot = grav_pot3; 
-    CoolingFunc = AtmosCooling3D;
+   // CoolingFunc = AtmosCooling3D;
+    HeatCondFunc = heatcond_prof3;
     for (nl=0; nl<(pM->NLevels); nl++){
       for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
-        bvals_mhd_fun(&(pM->Domain[nl][nd]), left_x3,  flux_ix3);
+        bvals_mhd_fun(&(pM->Domain[nl][nd]), left_x3,  constT_ix3);
         bvals_mhd_fun(&(pM->Domain[nl][nd]), right_x3, flux_ox3);
       }
     }
@@ -416,7 +457,6 @@ void freeze_ix2(GridS *pGrid)
   iu = pGrid->ie + nghost;
   il = pGrid->is - nghost;
 
-  cc_pos(pGrid,1,js,1,&x10,&x20,&x30);
 
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
@@ -550,7 +590,7 @@ void flux_ox2(GridS *pGrid)
   x20 = 1-x20;
   for (k=ks; k<=ke; k++) {
     for (j=1; j<=nghost; j++) {
-        cc_pos(pGrid,i,je+j,k,&x1,&x2,&x3);
+        cc_pos(pGrid,1,je+j,k,&x1,&x2,&x3);
 		x2 = 1.-x2;
       for (i=il; i<=iu; i++) {
 		Ds = pGrid->U[k][je][i].d;				
@@ -670,17 +710,15 @@ void constT_ox2(GridS *pGrid)
 }
 
 
-/*----------------------------------------------------------------------------*/
-/*! \fn static void reflect_ix3(GridS *pGrid)
- *  \brief Special reflecting boundary functions in x3 for 2D sims
- */
+/*----------------------------------------------------------------------------
+ * 3D boundary conditions
+ * ----------------------------------------------------------------------------*/
 
-void flux_ix3(GridS *pGrid)
+void freeze_ix3(GridS *pGrid)
 {
   int ks = pGrid->ks;
   int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
   Real Tval, Pval, Rhoval;
-  Real Ts, Ps, Ds,Es;
   Real x1,x2,x3,x10,x20,x30;
 
   iu = pGrid->ie + nghost;
@@ -695,12 +733,92 @@ void flux_ix3(GridS *pGrid)
 
   cc_pos(pGrid,1,1,ks,&x10,&x20,&x30);
   for (k=1; k<=nghost; k++) {
-    cc_pos(pGrid,1,1,k,&x1,&x2,&x3);
+    cc_pos(pGrid,1,1,ks-k,&x1,&x2,&x3);
+      Tval = Tfunc(x3);
+      Pval = Pfunc(x3);
+      Rhoval = Pval/(delad*Tval);
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
+
+		pGrid->U[ks-k][j][i].d = Rhoval; 
+		pGrid->U[ks-k][j][i].M1 = pGrid->U[ks+(j-1)][j][i].M1;	// Zero gradient in horizontal velocities (stress free)	
+		pGrid->U[ks-k][j][i].M2 = pGrid->U[ks+(j-1)][j][i].M2;	// Zero gradient in horizontal velocities (stress free)	
+		pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks+(j-1)][j][i].M3;	// Zero vertical velocity	
+		pGrid->U[ks-k][j][i].E = Pval/(Gamma-1) + (.5/Rhoval)*(SQR(pGrid->U[ks-k][j][i].M1) + SQR(pGrid->U[ks-k][j][i].M2)+SQR(pGrid->U[ks-k][j][i].M3));
+
+      }
+    }
+  }
+
+  return;
+}
+void freeze_ox3(GridS *pGrid)
+{
+  int ke = pGrid->ke;
+  int i,j,k ,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
+  Real Tval, Pval, Rhoval;
+  Real x1,x2,x3,x10,x20,x30;
+
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost;
+  if (pGrid->Nx[1] > 1){
+    ju = pGrid->je + nghost;
+    jl = pGrid->js - nghost;
+  } else {
+    ju = pGrid->je;
+    jl = pGrid->js;
+  }
+  for (k=1; k<=nghost; k++) {
+        cc_pos(pGrid,1,1,ke+k,&x1,&x2,&x3);
+      Tval = Tfunc(x3);
+      Pval = Pfunc(x3);
+      Rhoval = Pval/(delad*Tval);
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+
+		pGrid->U[ke+k][j][i].d = Rhoval; 
+		pGrid->U[ke+k][j][i].M1 = pGrid->U[ke-(k-1)][j][i].M1;	// Zero gradient in horizontal momenta (stress free)	
+		pGrid->U[ke+k][j][i].M2 = pGrid->U[ke-(k-1)][j][i].M2;	// Zero gradient in horizontal momenta (stress free)	
+		pGrid->U[ke+k][j][i].M3 = -pGrid->U[ke-(k-1)][j][i].M3;	// Zero vertical momentum 
+		pGrid->U[ke+k][j][i].E = Pval/(Gamma-1) + .5/Rhoval * (SQR(pGrid->U[ke+k][j][i].M1) + SQR(pGrid->U[ke+k][j][i].M2)+SQR(pGrid->U[ke+k][j][i].M3));
+
+      }
+    }
+  }
+
+  return;
+}
+
+void flux_ix3(GridS *pGrid)
+{
+  int ks = pGrid->ks;
+  int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
+  Real Tval, Pval, Rhoval;
+  Real Ts, Ps, Ds,Es,M1s,M2s,M3s;
+  Real x1,x2,x3,x10,x20,x30;
+
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost;
+  if (pGrid->Nx[1] > 1){
+    ju = pGrid->je + nghost;
+    jl = pGrid->js - nghost;
+  } else {
+    ju = pGrid->je;
+    jl = pGrid->js;
+  }
+
+  cc_pos(pGrid,1,1,ks,&x10,&x20,&x30);
+  for (k=1; k<=nghost; k++) {
+    cc_pos(pGrid,1,1,ks-k,&x1,&x2,&x3);
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+
 		Ds = pGrid->U[ks][j][i].d;				
 		Es = pGrid->U[ks][j][i].E;				
-		Ps = (Gamma-1)*(Es - .5*(SQR(pGrid->U[ks][j][i].M1) + SQR(pGrid->U[ks][j][i].M2)+SQR(pGrid->U[ks][j][i].M3))/Ds);
+        M1s = pGrid->U[ks][j][i].M1;
+        M2s = pGrid->U[ks][j][i].M2;
+        M3s = pGrid->U[ks][j][i].M3;
+		Ps = (Gamma-1)*(Es - .5*(M1s*M1s+M2s*M2s+M3s*M3s)/Ds);
 		Ts = Ps/(delad*Ds);
 
 		Tval = Ts + log((1-a*x3)/(1-a*x30))/a; // Exact conductive T(z) 
@@ -708,10 +826,10 @@ void flux_ix3(GridS *pGrid)
 		Rhoval = Pval/(delad*Tval);
 
 		pGrid->U[ks-k][j][i].d = Rhoval; 
-		pGrid->U[ks-k][j][i].M1 = pGrid->U[ks+(k-1)][j][i].M1;	// Zero gradient in horizontal velocities (stress free)	
-		pGrid->U[ks-k][j][i].M2 = pGrid->U[ks+(k-1)][j][i].M2;	// Zero gradient in horizontal velocities (stress free)		
-		pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks+(k-1)][j][i].M3;	// Zero vertical velocity	
-		pGrid->U[ks-k][j][i].E = Pval/(Gamma-1) + .5/Rhoval * (SQR(pGrid->U[ks-k][j][i].M1) + SQR(pGrid->U[ks-k][j][i].M2)+SQR(pGrid->U[ks-k][j][i].M3));
+		pGrid->U[ks-k][j][i].M1 = pGrid->U[ks+(j-1)][j][i].M1;	// Zero gradient in horizontal velocities (stress free)	
+		pGrid->U[ks-k][j][i].M2 = pGrid->U[ks+(j-1)][j][i].M2;	// Zero gradient in horizontal velocities (stress free)	
+		pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks+(j-1)][j][i].M3;	// Zero vertical velocity	
+		pGrid->U[ks-k][j][i].E = Pval/(Gamma-1) + (.5/Rhoval)*(SQR(pGrid->U[ks-k][j][i].M1) + SQR(pGrid->U[ks-k][j][i].M2)+SQR(pGrid->U[ks-k][j][i].M3));
 
       }
     }
@@ -745,10 +863,12 @@ void flux_ox3(GridS *pGrid)
   cc_pos(pGrid,1,1,ke,&x10,&x20,&x30);
   x30 = 1-x30;
   for (k=1; k<=nghost; k++) {
-        cc_pos(pGrid,1,1,k,&x1,&x2,&x3);
+        cc_pos(pGrid,1,1,ke+k,&x1,&x2,&x3);
 		x3 = 1.-x3;
     for (j=jl; j<=ju; j++) {
       for (i=il; i<=iu; i++) {
+
+
 		Ds = pGrid->U[ke][j][i].d;				
 		Es = pGrid->U[ke][j][i].E;				
 		Ps = (Gamma-1)*(Es - .5*(SQR(pGrid->U[ke][j][i].M1)+ SQR(pGrid->U[ke][j][i].M2)+SQR(pGrid->U[ke][j][i].M3))/Ds);
@@ -760,10 +880,115 @@ void flux_ox3(GridS *pGrid)
 
 		pGrid->U[ke+k][j][i].d = Rhoval; 
 		pGrid->U[ke+k][j][i].M1 = pGrid->U[ke-(k-1)][j][i].M1;	// Zero gradient in horizontal momenta (stress free)	
-		pGrid->U[ke+k][j][i].M2 = pGrid->U[ke-(k-1)][j][i].M2;	// Zero vertical momentum 
+		pGrid->U[ke+k][j][i].M2 = pGrid->U[ke-(k-1)][j][i].M2;	// Zero gradient in horizontal momenta (stress free)	
 		pGrid->U[ke+k][j][i].M3 = -pGrid->U[ke-(k-1)][j][i].M3;	// Zero vertical momentum 
 		pGrid->U[ke+k][j][i].E = Pval/(Gamma-1) + .5/Rhoval * (SQR(pGrid->U[ke+k][j][i].M1) + SQR(pGrid->U[ke+k][j][i].M2)+SQR(pGrid->U[ke+k][j][i].M3));
 
+      }
+    }
+  }
+
+  return;
+}
+void constT_ix3(GridS *pGrid)
+{
+  int ks = pGrid->ks;
+  int i,j,k,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
+  Real Tval, Pval, Rhoval;
+  Real Ts, Ps, Ds,Es,M1s,M2s,M3s;
+  Real plaw;
+
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost;
+  if (pGrid->Nx[1] > 1){
+    ju = pGrid->je + nghost;
+    jl = pGrid->js - nghost;
+  } else {
+    ju = pGrid->je;
+    jl = pGrid->js;
+  }
+
+  for (k=1; k<=nghost; k++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+		Ds = pGrid->U[ks][j][i].d;				
+		Es = pGrid->U[ks][j][i].E;				
+        M1s = pGrid->U[ks][j][i].M1;
+        M2s = pGrid->U[ks][j][i].M2;
+        M3s = pGrid->U[ks][j][i].M3;
+		Ps = (Gamma-1)*(Es - .5*(M1s*M1s+M2s*M2s+M3s*M3s)/Ds);
+		Ts = Ps/(delad*Ds);
+
+        
+        Rhoval = pGrid->U[ks+(k-1)][j][i].d;
+        Pval = (Gamma-1)*(pGrid->U[ks+(k-1)][j][i].E - .5*(SQR(pGrid->U[ks+(k-1)][j][i].M1)+SQR(pGrid->U[ks+(k-1)][j][i].M2))/Rhoval);
+
+        Tval = 2*Tbot - Pval/(delad*Rhoval); // Linear profile of T through boundary
+
+        plaw = -g/delad;
+        plaw /= (Ts - Tbot)*2/pGrid->dx3;
+
+        Pval = Ps * pow( Tval/Ts,plaw); // Hydrostatic Pressure given linear T profile
+        Rhoval = Ds * pow( Tval/Ts,plaw-1); // Hydrostatic Density given EOS 
+
+		pGrid->U[ks-k][j][i].d = Rhoval; 
+		pGrid->U[ks-k][j][i].M1 = pGrid->U[ks+(k-1)][j][i].M1;	// Zero gradient in horizontal velocities (stress free)	
+		pGrid->U[ks-k][j][i].M2 = pGrid->U[ks+(k-1)][j][i].M2;	// Zero gradient in horizontal velocities (stress free)	
+		pGrid->U[ks-k][j][i].M3 = -pGrid->U[ks+(k-1)][j][i].M3;	// Zero vertical velocity	
+		pGrid->U[ks-k][j][i].E = Pval/(Gamma-1) + (.5/Rhoval)*(SQR(pGrid->U[ks-k][j][i].M1) + SQR(pGrid->U[ks-k][j][i].M2)+SQR(pGrid->U[ks-k][j][i].M3));
+
+      }
+    }
+  }
+
+  return;
+}
+void constT_ox3(GridS *pGrid)
+{
+  int ke = pGrid->ke;
+  int i,j,k ,il,iu,jl,ju; /* i-lower/upper;  j-lower/upper */
+  Real Tval, Pval, Rhoval;
+  Real Ts, Ps, Ds,Es,M1s,M2s,M3s;
+  Real plaw;
+
+  iu = pGrid->ie + nghost;
+  il = pGrid->is - nghost;
+  if (pGrid->Nx[1] > 1){
+    ju = pGrid->je + nghost;
+    jl = pGrid->js - nghost;
+  } else {
+    ju = pGrid->je;
+    jl = pGrid->js;
+  }
+  for (k=1; k<=nghost; k++) {
+    for (j=jl; j<=ju; j++) {
+      for (i=il; i<=iu; i++) {
+		Ds = pGrid->U[ke][j][i].d;				
+		Es = pGrid->U[ke][j][i].E;				
+        M1s = pGrid->U[ke][j][i].M1;
+        M2s = pGrid->U[ke][j][i].M2;
+        M3s = pGrid->U[ke][j][i].M3;
+		Ps = (Gamma-1)*(Es - .5*(M1s*M1s+M2s*M2s+M3s*M3s)/Ds);
+		Ts = Ps/(delad*Ds);
+
+        
+        Rhoval = pGrid->U[ke-(k-1)][j][i].d;
+        Pval = (Gamma-1)*(pGrid->U[ke-(k-1)][j][i].E - .5/Rhoval*(SQR(pGrid->U[ke-(k-1)][j][i].M1)+SQR(pGrid->U[ke-(k-1)][j][i].M2)+SQR(pGrid->U[ke-(k-1)][j][i].M3)));
+
+        Tval = 2*Ttop - Pval/(delad*Rhoval); // Linear profile of T through boundary
+
+        plaw = -g/delad;
+        plaw /= (Ttop - Ts)*2/pGrid->dx3;
+
+        Pval = Ps * pow( Tval/Ts,plaw); // Hydrostatic Pressure given linear T profile
+        Rhoval = Ds * pow( Tval/Ts,plaw-1); // Hydrostatic Density given EOS 
+
+
+		pGrid->U[ke+k][j][i].d = Rhoval; 
+		pGrid->U[ke+k][j][i].M1 = pGrid->U[ke-(k-1)][j][i].M1;	// Zero gradient in horizontal momenta (stress free)	
+		pGrid->U[ke+k][j][i].M2 = pGrid->U[ke-(k-1)][j][i].M2;	// Zero gradient in horizontal momenta (stress free)	
+		pGrid->U[ke+k][j][i].M3 = -pGrid->U[ke-(k-1)][j][i].M3;	// Zero vertical momentum 
+		pGrid->U[ke+k][j][i].E = Pval/(Gamma-1) + .5/Rhoval * (SQR(pGrid->U[ke+k][j][i].M1) + SQR(pGrid->U[ke+k][j][i].M2)+ SQR(pGrid->U[ke+k][j][i].M3));
 
       }
     }

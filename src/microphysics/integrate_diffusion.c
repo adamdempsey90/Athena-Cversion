@@ -67,14 +67,21 @@ void integrate_diff_init(MeshS *pM __attribute__ ((unused)))
  * allocation routines.  */
 
 #ifdef THERMAL_CONDUCTION
-  if ((kappa_iso+kappa_aniso)==0.0 || kappa_iso<0.0 || kappa_aniso<0.0) 
+  if ((kappa_iso+kappa_aniso)==0.0 || kappa_iso<0.0 || kappa_aniso<0.0) { 
+  if ((kappa_iso+kappa_aniso)==0.0 ) printf("kappa+kappan");
+  if (kappa_iso<0.0) printf("kappa_iso\n");
+  if (kappa_aniso<0.0) printf("KAPPA_ANISO\n");
+    printf("HERE\n");
     ath_error("[diff_init] problem with coefficents of thermal conduction\n");
+  }
   conduction_init(pM);
 #endif
 
 #ifdef VISCOSITY
-  if ((nu_iso+nu_aniso)==0.0 || nu_iso<0.0 || nu_aniso<0.0) 
+  if ((nu_iso+nu_aniso)==0.0 || nu_iso<0.0 || nu_aniso<0.0) { 
+      printf("%lg\n",nu_iso);
     ath_error("[diff_init] problem with coefficents of viscosity\n");
+  }
   viscosity_init(pM);
 #endif
 

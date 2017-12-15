@@ -1,40 +1,28 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def loadit(i,ny=104,nx=40,nproc=1):
-    nvals = range(nproc)
-
-
-    p = []
-    d = []
-    vz = []
-    y = []
-
-    for n in nvals:
-
-        if n > 0:
-            directory = 'id{:d}'.format(nproc)
-        else:
-            directory = ''
-        fname = directory + 'conv.{:04d}.tab'.format(i)
-        with open(fname,'r') as f:
-            lines = f.readlines()
-        nx = int(lines[0].split('=')[-1].strip())
-        ny = int(lines[2].split('=')[-1].strip())
-        dat = np.loadtxt(fname)
-        p.append(dat[:,-1].reshape(ny,nx))
-        d.append(dat[:,4].reshape(ny,nx))
-        vz.append(dat[:,6].reshape(ny,nx))
-        y.append(dat[:,3].reshape(ny,nx))
-        T = p/(d*.4)
-        s = np.log(T*p**(-.4))
-        s -= s[0,:].mean()
+def loadit(i,ny=200,nx=72):
+    fname = 'conv.{:04d}.tab'.format(i)
+    dat = np.loadtxt(fname)
+    p = dat[:,-1].reshape(ny,nx)
+    d = dat[:,4].reshape(ny,nx)
+    vz = dat[:,6].reshape(ny,nx)
+    y = dat[:,3].reshape(ny,nx)
+    T = p/(d*.4)
+    s = np.log(T*p**(-.4))
+    s -= s[0,:].mean()
     return y[:,0],T,d,p,vz,s
 
-def plot2d(q,fig=None,ax=None):
+def plot2d(q,fig=None,ax=None,symmetric=False):
     if ax is None:
         fig,ax = plt.subplots()
-    ax.imshow(q,origin='lower',extent=(-.5,.5,-1,2))
+    kargs={}
+    if symmetric:
+        vmax =  abs(q).max()
+        vmin = - vmax
+        kargs = {'vmin':vmin,'vmax':vmax}
+
+    ax.imshow(q,origin='lower',extent=(-.5,.5,-1,2),cmap='coolwarm',**kargs)
 
 def plotit(y,T,d,p,vz,s,j=10,avg=True,fig=None,axes=None,**kargs):
     if axes is None:
@@ -63,7 +51,7 @@ def plotit(y,T,d,p,vz,s,j=10,avg=True,fig=None,axes=None,**kargs):
     return fig,axes
 
 
-def summary(ivals,figsize=(15,10),savefig=None,np=1,**kargs):
+def summary(ivals,figsize=(15,10),savefig=None,**kargs):
     import matplotlib.gridspec as gridspec
     gs = gridspec.GridSpec(2,4)
     fig = plt.figure(figsize=figsize)
@@ -76,18 +64,18 @@ def summary(ivals,figsize=(15,10),savefig=None,np=1,**kargs):
     ax2 = fig.add_subplot(gs[:,-2])
     ax3 = fig.add_subplot(gs[:,-1])
 
-    plotit(*loadit(0,np=np),fig=fig,axes=axes,**kargs)
+    plotit(*loadit(0),fig=fig,axes=axes,**kargs)
     try:
         nt = len(ivals)
     except TypeError:
         nt = 1
         ivals = [ivals]
     for i in ivals:
-        y,T,d,p,vz,s = loadit(i,np=np)
+        y,T,d,p,vz,s = loadit(i)
         plotit(y,T,d,p,vz,s,fig=fig,axes=axes)
 
     plot2d(s-s.mean(axis=1)[:,np.newaxis],ax=ax2,fig=fig)
-    plot2d(vz,ax=ax3,fig=fig)
+    plot2d(vz,ax=ax3,fig=fig,symmetric=True)
     ax2.set_title('$s-\\langle s \\rangle$')
     ax3.set_title('$v_z$')
     fig.tight_layout()

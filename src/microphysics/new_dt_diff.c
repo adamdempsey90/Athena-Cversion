@@ -32,10 +32,18 @@ Real new_dt_diff(MeshS *pM)
 {
   Real max_dti_diff=(TINY_NUMBER);
   Real dxmin,qa;
-#ifdef RESISTIVITY
+#if defined(RESISTIVITY)||defined(THERMAL_CONDUCTION)
   int i,j,k,nl,nd;
   GridS *pG;
+#endif
+#ifdef THERMAL_CONDUCTION
+  Real kappa,x1,x2,x3;
 
+
+#endif
+
+
+#ifdef RESISTIVITY
 /* Calculate the magnetic diffusivity array */
   for (nl=0; nl<(pM->NLevels); nl++){
     for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
@@ -60,7 +68,30 @@ Real new_dt_diff(MeshS *pM)
   if (pM->Nx[2] > 1) qa = (dxmin*dxmin)/6.0;
 
 #ifdef THERMAL_CONDUCTION
-  max_dti_diff = MAX( max_dti_diff, ((kappa_iso + kappa_aniso)/qa) );
+  //max_dti_diff = MAX( max_dti_diff, ((kappa_iso + kappa_aniso)/qa) );
+  for (nl=pM->NLevels-1; nl>=0; nl--){
+    for (nd=0; nd<(pM->DomainsPerLevel[nl]); nd++){
+      if (pM->Domain[nl][nd].Grid != NULL){
+        pG = pM->Domain[nl][nd].Grid;
+
+        dxmin = pG->dx1;
+        if (pG->Nx[1] > 1) dxmin = MIN( dxmin, (pG->dx2) );
+        if (pG->Nx[2] > 1) dxmin = MIN( dxmin, (pG->dx3) );
+
+        qa = dxmin*dxmin;
+
+        for (k=pG->ks; k<=pG->ke; k++) {
+        for (j=pG->js; j<=pG->je; j++) {
+        for (i=pG->is; i<=pG->ie; i++) {
+            cc_pos(pG,i,j,k,&x1,&x2,&x3);
+            kappa = (*HeatCondFunc)(pG->U[k][j][i].d,pG->U[k][j][i].E,x1,x2,x3)/pG->U[k][j][i].d;
+
+          max_dti_diff = MAX( max_dti_diff, kappa/qa );
+  
+        }}}
+      }
+    }
+  }
 #endif
 #ifdef VISCOSITY
   max_dti_diff = MAX( max_dti_diff, ((nu_iso + nu_aniso)/qa) );
