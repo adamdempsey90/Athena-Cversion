@@ -12,23 +12,26 @@ num_domains  = 1           # number of Domains in Mesh
 <output1>
 out_fmt = vtk               # History data dump
 out = prim
-dt      = 1.0             # time increment between outputs
+dt      = 10.0             # time increment between outputs
+<output2>
+out_fmt = rst               # History data dump
+dt      = 500.0             # time increment between outputs
 
 
 <time>
 cour_no         = 0.8       # The Courant, Friedrichs, & Lewy (CFL) Number
 nlim            = 100000000     # cycle limit
-tlim            = 1000.0       # time limit
+tlim            = 5000.0       # time limit
 
 <domain1>
 level           = 0          # refinement level this Domain (root=0)
-Nx1             = 32        # Number of zones in X1-direction
+Nx1             = 64        # Number of zones in X1-direction
 x1min           = -0.5 # minimum value of X1
 x1max           = 0.5  # maximum value of X1
 bc_ix1          = 4          # boundary condition flag for inner-I (X1)
 bc_ox1          = 4          # boundary condition flag for outer-I (X1)
 
-Nx2             = 96       # Number of zones in X2-direction
+Nx2             = 192      # Number of zones in X2-direction
 x2min           = -1.0      # minimum value of X2
 x2max           = 2.0       # maximum value of X2
 bc_ix2          = 1         # boundary condition flag for inner-J (X2)
@@ -40,11 +43,12 @@ x3max           = 0.5       # maximum value of X3
 bc_ix3          = 4         # boundary condition flag for inner-K (X3)
 bc_ox3          = 4         # boundary condition flag for outer-K (X3)
 
-NGrid_x2        = 2
-NGrid_x1        = 2
+AutoWithNProc= 2
+
 
 <problem>
 gamma = 1.6666667         # gamma = C_p/C_v
-Ftot = 1e-3
-delta = .2
+Ftot = 1e-4
+delta = 1e-2
+nu_iso = 3e-3
 
