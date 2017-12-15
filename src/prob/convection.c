@@ -56,7 +56,7 @@
  * grav_pot3() - gravitational potential for 3D problem (accn in Z)
  *============================================================================*/
 
-static Real a,xi,Ftot,g,loz,delta,delad,Ttop,Tbot,Ptop,Pbot,T1,T0,P1,P0,ksmooth,minF;
+static Real a,xi,Ftot,g,loz,delta,delad,Ttop,Tbot,Ptop,Pbot,T1,T0,P1,P0,ksmooth,minF,amp;
 
 void flux_ix2(GridS *pGrid);
 void flux_ox2(GridS *pGrid);
@@ -119,6 +119,7 @@ void problem(DomainS *pDomain)
   delta = par_getd_def("problem","delta",1e-3);
   ksmooth = par_getd_def("problem","ksmooth",0.05);
   minF = par_getd_def("problem","minF",0.1);
+  amp = par_getd_def("problem","amp",1e-6);
 
 /* 2D PROBLEM --------------------------------------------------------------- */
 /* Initialize two fluids with interface at y=0.0.  Pressure scaled to give a
@@ -155,8 +156,8 @@ void problem(DomainS *pDomain)
       Rhoval = Pval/(delad*Tval);
 	    pGrid->U[k][j][i].d = Rhoval;
         pGrid->U[k][j][i].E = Pval/(Gamma-1);
-	    pGrid->U[k][j][i].M1 = Rhoval*1e-4*cos(2*M_PI/3 * (x2+1)*4)*sin(2*M_PI*(x1+.5)*3);
-	    pGrid->U[k][j][i].M2 = Rhoval*1e-3*sin(2*M_PI/3 * (x2+1)*4)*cos(2*M_PI*(x1+.5)*3);
+	    pGrid->U[k][j][i].M1 = Rhoval*amp*cos(2*M_PI/3 * (x2+1)*4)*sin(2*M_PI*(x1+.5)*3);
+	    pGrid->U[k][j][i].M2 = Rhoval*amp*sin(2*M_PI/3 * (x2+1)*4)*cos(2*M_PI*(x1+.5)*3);
 	    pGrid->U[k][j][i].M3 = 0.0;
 
 	    pGrid->U[k][j][i].E+=0.5*SQR(pGrid->U[k][j][i].M1)/pGrid->U[k][j][i].d;
