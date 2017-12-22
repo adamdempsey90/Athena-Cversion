@@ -1,0 +1,154 @@
+<comment>
+problem = 2D convection with variable conductivity  
+author  = Adam M. Dempsey 
+journal = 
+config  = --with-problem=convection --with-gas=hydro --enable-conduction
+
+<job>
+problem_id   = conv          # problem ID: basename of output filenames
+maxout       = 25         # Output blocks number from 1 -> maxout
+num_domains  = 1           # number of Domains in Mesh
+
+<output1>
+out_fmt = vtk             # History data dump
+out = prim
+dt      = 50.0              # time increment between outputs
+
+<output2>
+out_fmt = rst               # History data dump
+dt      = 1000.0              # time increment between outputs
+
+<output4>
+out_fmt = tab
+out = Fc
+id = Fc
+usr_expr_flag = 1
+dt = 0.001
+x1 =  :
+x2 =  :
+
+<output5>
+out_fmt = tab
+out = T2
+dt = 0.001
+id = T2
+usr_expr_flag = 1
+x1 =  :
+x2 =  :
+
+<output6>
+out_fmt = tab
+out = Fe
+id = Fe
+usr_expr_flag = 1
+dt = 0.001
+x1 =  :
+x2 =  :
+
+<output7>
+out_fmt = tab
+out = Fk
+id = Fk
+usr_expr_flag = 1
+dt = 0.001
+x1 =  :
+x2 =  :
+
+<output8>
+out_fmt = tab
+out = s
+id = s
+usr_expr_flag = 1
+dt = 0.001
+x1 =  :
+x2 =  :
+
+<output9>
+out_fmt = tab
+out = T
+id = T
+usr_expr_flag = 1
+dt = 0.001
+x1 =  :
+x2 =  :
+
+
+<output10>
+out_fmt = tab
+out = P
+id = P
+usr_expr_flag = 1
+dt = 0.001
+x1 =  :
+x2 =  :
+
+<output11>
+out_fmt = tab
+out = KE
+id = KE
+usr_expr_flag = 1
+dt = 0.001
+x1 =  :
+x2 =  :
+
+<output12>
+out_fmt = tab
+out = fd
+id = fd
+usr_expr_flag = 1
+dt = 0.001
+x1 =  :
+x2 =  :
+
+
+<output13>
+out_fmt = tab
+out = fu
+id = fu
+usr_expr_flag = 1
+dt = 0.001
+x1 =  :
+x2 =  :
+
+<output14>
+out_fmt = tab
+out = dens
+id = dens
+usr_expr_flag = 1
+dt = 0.001
+x1 =  :
+x2 =  :
+
+<time>
+cour_no         = 0.4       # The Courant, Friedrichs, & Lewy (CFL) Number
+nlim            = 1000000000     # cycle limit
+tlim            = 0.01       # time limit
+
+<domain1>
+level           = 0          # refinement level this Domain (root=0)
+Nx1             = 30   # Number of zones in X1-direction
+x1min           = 0.0 # minimum value of X1
+x1max           = 1.0  # maximum value of X1
+bc_ix1          = 4          # boundary condition flag for inner-I (X1)
+bc_ox1          = 4          # boundary condition flag for outer-I (X1)
+
+Nx2             = 30       # Number of zones in X2-direction
+x2min           = 0.0      # minimum value of X2
+x2max           = 1.0       # maximum value of X2
+bc_ix2          = 4         # boundary condition flag for inner-J (X2)
+bc_ox2          = 4         # boundary condition flag for outer-J (X2)
+
+Nx3             = 30         # Number of zones in X3-direction
+x3min           = -1.0      # minimum value of X3
+x3max           = 2.0       # maximum value of X3
+bc_ix3          = 1         # boundary condition flag for inner-K (X3)
+bc_ox3          = 1         # boundary condition flag for outer-K (X3)
+
+AutoWithNProc = 4
+
+<problem>
+gamma = 1.6666667         # gamma = C_p/C_v
+delta = 1e-2
+Ftot = 1e-3
+nu_iso = 1e-2
+
